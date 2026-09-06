@@ -258,6 +258,12 @@ shows for a few milliseconds — most likely because the shell repaints its own
 title the moment Claude Code hands back the prompt. A state nobody sees is not
 worth carrying.
 
+An interrupted turn keeps its marker, and this one is a known lie. Press Esc, or
+refuse a permission prompt, and the turn ends without firing a single hook: the
+tab holds whatever it showed, green if work was running. Nothing in the runtime
+reports it and the idle notification is locked out as well, so it stands until
+your next message. Measured, not assumed — the detail is in `CLAUDE.md`.
+
 Green also covers a turn that ended only to wait on background work — a
 subagent, a workflow, a `run_in_background` command, a scheduled wakeup. The
 session resumes on its own there, so it neither rests nor calls you, and no

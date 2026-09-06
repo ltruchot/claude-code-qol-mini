@@ -216,6 +216,46 @@ end-of-turn one. Background work still outranks it — the session wakes itself.
 narrow. It misses a question followed by a closing sentence. That is preferred
 to a red firing on any paragraph that holds a question mark.
 
+### Nothing fires when a turn is cut short
+
+Two ways a turn ends without finishing: you press Esc, or you refuse a permission
+prompt. **Neither emits a single hook.** The marker keeps whatever it had -- green
+if work was running -- and holds it until your next message.
+
+Measured, in one session: a prompt at 00:28:24 set green, the permission prompt was
+refused at 00:28:30 (`toolDenialKind: "user-rejected"` in the transcript), and
+nothing followed. No `Stop`, no event of any kind. Reproduced at 00:31:19. An
+interrupt behaves the same: a prompt, then 2m15s of silence before the next one.
+
+*Don't* expect the idle notification to rescue it. The interrupt path calls
+`resetLoadingState()` and `abort("user-cancel")` and never `markQueryComplete`, so
+`lastQueryCompletionTime` is left untouched. `idle_prompt` -- the only timed event
+in the runtime, 60s by `messageIdleNotifThresholdMs` -- is guarded twice against
+exactly that value: it returns when it is `0`, which is the state after a `/clear`
+or in a fresh session, and again when the last interaction is more recent, which a
+keystroke that interrupts always is. Measured: not one `idle_prompt` in forty
+minutes across five sessions.
+
+Three doors that look open, and are not:
+
+- **`StopFailure`** carries API errors only -- the enum runs
+  `authentication_failed` to `max_output_tokens`. Nothing about the user.
+- **`PermissionDenied`** fires on one branch, guarded on
+  `decisionReason.classifier === "auto-mode"`. It is the classifier refusing, never
+  a human on the dialog.
+- **The status line** is the only thing here that runs on a clock -- about once a
+  second, measured. It still cannot paint: `/dev/tty` raises `OSError`, all three
+  descriptors are non-tty, and an OSC 0 in its stdout is dropped. Emitted for two
+  minutes as `TITLE-TEST`: never seen in a tab, and never printed as text either.
+
+*Left open*: `PostToolUseFailure` carries `is_interrupt`, and it does reach a hook
+-- measured five times, all `is_interrupt: false`, ordinary exit-1 failures. Whether
+it survives the abort of a **running** tool is unmeasured; the runtime dispatches it
+on the already-aborted signal and counts the cancellations
+(`tengu_post_tool_failure_hooks_cancelled`). Even if it fires, it covers an
+interrupt during a tool and nothing else -- not a refused permission, not an Esc
+while the model is thinking.
+
 ### The release token is keyed on the DIRECTORY, not the session
 
 The skill has to write it from a plain shell, and it knows **where** it is far better
@@ -294,6 +334,10 @@ because `0k/200k` reads as the word "Ok" before it reads as a count.
 - **`/proc/PID/environ` is frozen at `exec`**: it cannot see a variable set by
   `settings.json`, which Node applies in `process.env`. A check that uses it for that
   proves nothing.
+- **To interrupt a running tool you must accept its permission prompt first.** Esc
+  on the dialog is a rejection -- `toolDenialKind: "user-rejected"` -- and the tool
+  never runs, so nothing tool-related can fire. Four attempts were spent before
+  reading the transcript field that says which of the two happened.
 - **Verify a negative result before concluding.** Twice in one session an
   unsuccessful search was taken as proof of absence, and both times it was wrong.
 

@@ -22,28 +22,28 @@ Opus 5 (1M context)  ▓▓▓▓▓▓░░░░  121/200k    · my-project  
 Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250/200k  · my-project    red
 ```
 
-## Install
+## Quick start
 
 ```bash
 git clone https://github.com/ltruchot/vscode-comfy-claude-config.git
 cd vscode-comfy-claude-config
+./install.sh          # answer the questions
+./install-vscode.sh   # only if you said yes to the tab marker
 ```
 
-macOS, Linux, WSL, Git Bash:
+Then **restart Claude Code itself**. `settings.json` is read at startup, and
+reloading the editor window is not enough: it reconnects to the terminals that
+are already running.
 
-```bash
-./install.sh
-```
+On Windows PowerShell, run `.\install.ps1` and `.\install-vscode.ps1` instead —
+or `python install.py` if script execution is blocked.
 
-Windows PowerShell:
+`python3` is the only prerequisite, plus an audio player on Linux and WSL if you
+want the sounds. See [Requirements](#requirements).
 
-```powershell
-.\install.ps1
-python install.py     # same thing, if script execution is blocked
-```
+### What it asks
 
-It asks what to install, one feature at a time, with the default in brackets and
-Enter to accept it:
+One feature at a time, the default in brackets, Enter to accept it:
 
 ```
   Context gauge in the status line? [Y/n]
@@ -54,11 +54,10 @@ Enter to accept it:
   Terminal tab marker? [y/N]
 ```
 
-Then **restart Claude Code** — `settings.json` is read at startup.
-
-Taking the tab marker? Run `./install-vscode.sh` (`.\install-vscode.ps1`) as well,
-then start a new session. It needs one editor setting; see
-[the tab marker](#the-terminal-tab-marker-vs-code-and-cursor) for what that costs.
+The tab marker is the only one that is off by default, and the only one that
+needs `install-vscode` and a new session. It retitles **every** terminal, not
+just Claude's — see [the tab marker](#the-terminal-tab-marker-vs-code-and-cursor)
+for what that costs and how to undo it.
 
 Everything goes into `$CLAUDE_CONFIG_DIR`, or `~/.claude` when that variable is
 unset. Your `settings.json` is **merged**, not replaced, and copied to

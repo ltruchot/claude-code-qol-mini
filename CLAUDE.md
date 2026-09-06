@@ -14,7 +14,7 @@ contributeurs, les commits devront passer à l'anglais.
 |---|---|---|
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
-| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟧 idle · 🟨 session finie |
+| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟡 idle · 🟨 session finie |
 | Revue kaizen | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` s'arrête et te dit de lancer `/kaizen` ; la revue faite, il passe |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
@@ -213,9 +213,10 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
   `CC_TAB_BLOCKED`, `CC_TAB_IDLE`, `CC_TAB_STOPPED` dans le bloc `env` — emoji, `[..]`, `(working)`.
   Les emoji rendent correctement, c'est constaté ; reste à savoir ce qui se repère le mieux dans une
   liste. Les couleurs sont tranchées : le **rouge ne sert qu'au blocage** — permission, question,
-  choix — sinon il ne veut plus rien dire. Les deux états de repos sont des **carrés**, orange pour
-  idle, jaune pour la session finie : l'orange seul se confond avec le rouge à distance, la forme
-  les sépare.
+  choix — sinon il ne veut plus rien dire. Les deux états de repos partagent **le jaune** et se
+  séparent par la **forme** : rond pour l'idle, carré pour la session finie. L'orange a été essayé
+  deux fois pour l'idle et lu comme du rouge à distance — l'œil saisit le chaud/froid bien avant de
+  résoudre l'orange du rouge, donc la seule distance sûre au rouge est le jaune.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
 - **La branche `auto` ne fait plus rien, et c'est définitif.** Elle passait par

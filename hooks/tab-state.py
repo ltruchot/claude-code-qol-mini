@@ -24,13 +24,17 @@ import sys
 #
 # Red is spent on one thing only: Claude cannot go on without you. Idle gets its
 # own marker because "nothing is asked of you" and "answer me" are different
-# situations, and a red that fires for both stops meaning anything. The two
-# resting states are squares, so they part from red by shape as well as hue --
-# orange alone reads as red from across a tab strip.
+# situations, and a red that fires for both stops meaning anything.
+#
+# The two resting states share one hue and part by shape. Orange was tried for
+# idle and read as red from across a tab strip, twice -- the eye catches the
+# warm/cold split long before it resolves orange from red, so the only safe
+# distance from red is yellow. Circle against square then separates idle from a
+# session that has ended, at a glance and without a third color.
 MARKERS = {
     "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green circle
     "blocked": os.environ.get("CC_TAB_BLOCKED", "\U0001F534"),  # red circle
-    "idle": os.environ.get("CC_TAB_IDLE", "\U0001F7E7"),        # orange square
+    "idle": os.environ.get("CC_TAB_IDLE", "\U0001F7E1"),        # yellow circle
     "stopped": os.environ.get("CC_TAB_STOPPED", "\U0001F7E8"),  # yellow square
 }
 

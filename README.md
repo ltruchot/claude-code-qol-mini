@@ -2,12 +2,13 @@
 
 A small, comfortable [Claude Code](https://code.claude.com) setup: a status line
 that always shows how much context you are carrying, two sounds that tell you
-when Claude wants you and when it has stopped working, and a review at compaction time so
-the same pitfall is not paid twice. An opt-in marker on the VS Code terminal tab
-is available too, with a caveat spelled out below.
+when Claude needs you and when it has finished, and a review at compaction time
+so the same pitfall is not paid twice. An opt-in marker on the terminal tab is
+available too, with its cost spelled out below.
 
-Everything lives in your Claude Code config directory. Nothing here is tied to a
-machine, an account, or a project.
+Everything lives in your Claude Code config directory. Nothing is tied to a
+machine, an account, or a project. Re-running the installer changes nothing
+unless something actually differs.
 
 ```
 Opus 5 (1M context)  ▓▓▓▓░░░░░░  88k/200k   · my-project     green
@@ -20,35 +21,47 @@ Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250k/200k · my-project  
 ```bash
 git clone https://github.com/ltruchot/vscode-comfy-claude-config.git
 cd vscode-comfy-claude-config
-./install.sh          # or: .\\install.ps1 on Windows PowerShell
 ```
 
-With no arguments it asks what to install, one feature at a time, with the
-default in brackets and Enter to accept it:
+macOS, Linux, WSL, Git Bash:
+
+```bash
+./install.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\install.ps1
+python install.py     # same thing, if script execution is blocked
+```
+
+It asks what to install, one feature at a time, with the default in brackets and
+Enter to accept it:
 
 ```
-  The gauge counts what is re-sent to the model on every request, and
-  turns orange then red at fixed token counts -- not at a share of the
-  window, which would stay near-empty on a 1M model.
   Context gauge in the status line? [Y/n]
   Orange at how many tokens? [100000]
   Red at how many tokens? [200000]
-
   Notification sounds? [Y/n]
   Friction review before /compact, via /kaizen? [Y/n]
   Terminal tab marker? [y/N]
 ```
 
-Pass any option and it asks nothing — that is what CI and `test.sh` rely on, and
-a piped or redirected stdin takes the same path. `--defaults` installs the
-defaults without a single question.
+Then **restart Claude Code** — `settings.json` is read at startup.
 
-Then **restart Claude Code** — `settings.json` is only read at startup.
+Taking the tab marker? Run `./install-vscode.sh` (`.\install-vscode.ps1`) as well,
+then start a new session. It needs one editor setting; see
+[the tab marker](#the-terminal-tab-marker-vs-code-and-cursor) for what that costs.
 
-The installer writes into `$CLAUDE_CONFIG_DIR`, or `~/.claude` when that
-variable is unset. It **merges** into your `settings.json` rather than replacing
-it, and copies the previous file to `settings.json.bak-<timestamp>` first, so
-your own permissions, plugins and environment survive.
+Everything goes into `$CLAUDE_CONFIG_DIR`, or `~/.claude` when that variable is
+unset. Your `settings.json` is **merged**, not replaced, and copied to
+`settings.json.bak-<timestamp>` first, so your own permissions, plugins and
+environment survive.
+
+### Options
+
+Pass any of these and it asks nothing.
 
 | Option | Effect |
 |---|---|
@@ -58,60 +71,65 @@ your own permissions, plugins and environment survive.
 | `--no-kaizen` | leave the `/compact` friction review out |
 | `--warn N` | gauge turns orange at N tokens (default 100000) |
 | `--alert N` | gauge turns red at N tokens (default 200000) |
-| `--defaults` | install the defaults without asking |
+| `--defaults` | take every default, ask nothing |
 | `--replace` | overwrite delivered files that differ |
+
+The two thresholds also read from `CC_CONTEXT_WARN` and `CC_CONTEXT_ALERT`.
+
+### Update
+
+```bash
+git pull
+./install.sh --replace
+```
+
+`--replace` is needed because the installer never overwrites on its own: a file
+that differs could be an old version or an edit you made on purpose, and it will
+not guess. It stops before writing anything, names the files, and leaves the
+choice to you — remove them, `./uninstall.sh`, or `--replace`.
+
+Your sounds are the exception in the other direction: they are never rewritten,
+so a WAV you dropped in survives every update.
 
 ### Running it twice
 
-The installer creates what is missing, leaves what is already identical, and
-writes `settings.json` only when the merge would change it. A second run with
-the same answers prints one line and stops:
+Nothing happens.
 
 ```
 Already installed in /home/you/.claude, with these settings. Nothing changed.
 ```
 
-No file is touched on that path, and no `settings.json.bak-…` is left behind.
-`./uninstall.sh` behaves the same way when there is nothing of ours left.
+No file is touched, no backup is left behind, and `./uninstall.sh` says the same
+when there is nothing of ours left. Re-running the interview is safe too: the
+brackets hold what is installed right now, so pressing Enter through it keeps
+your current setup rather than resetting it.
 
-What it will **not** do is overwrite. A delivered file that exists with
-different content — an older version, or an edit you made on purpose — stops
-the run before anything is written, names the files, and leaves the choice to
-you: remove them, run `./uninstall.sh`, or re-run with `--replace`. There is no
-half-installed state to recover from, because a refused run writes nothing at
-all.
+### Uninstall
 
-The two sounds are exempt in the other direction: they are **never** rewritten,
-because dropping your own WAV over them is a documented way to change them.
-`python3 sounds/generate.py --force ~/.claude/sounds` puts the originals back.
+```bash
+./uninstall.sh        # .\uninstall.ps1 on Windows PowerShell
+```
 
-The interview's brackets hold what is installed right now rather than what
-ships by default, so pressing Enter through it reproduces your current setup
-instead of resetting it.
-
-The two thresholds are written onto the status line command in `settings.json`,
-not into its `env` block, and only when they differ from the defaults. That file
-is re-read hot while `env` is read at startup, so changing a threshold takes
-effect without a new session — and `CC_CONTEXT_WARN` / `CC_CONTEXT_ALERT` keep
-working for anyone who set them that way.
-
-To remove everything it added, and only that: `./uninstall.sh` (`.\\uninstall.ps1`).
+Removes what the installer added, and nothing else.
 
 ### Requirements
 
-- **python3** — runs the status line and builds the sounds. Already present on
+- **python3** — runs the status line and builds the sounds. Already there on
   most systems; `xcode-select --install` on macOS, `sudo apt install python3` on
-  Debian and Ubuntu.
-- **An audio player**, only if you want sounds. Windows needs nothing: the
-  player uses `winsound` from the standard library. macOS has `afplay` built in.
-  On Linux and WSL any one of `paplay`, `pw-play`, `aplay`, `ffplay`, `mpv` or
-  `play` will do — you almost certainly have one already.
+  Debian and Ubuntu, [python.org](https://www.python.org/downloads/) on Windows.
+- **An audio player**, only for the sounds. Windows and macOS need nothing —
+  `winsound` ships with Python, `afplay` with macOS. On Linux and WSL any one of
+  `paplay`, `pw-play`, `aplay`, `ffplay`, `mpv` or `play` will do.
 
-No shell is required for the hooks themselves: they are registered in exec form,
-naming the interpreter and its arguments directly, so nothing depends on Git
-Bash being installed or on how a path with spaces would be quoted.
+No shell is required for the hooks: they are registered in exec form, naming the
+interpreter and its arguments directly, so nothing depends on Git Bash or on how
+a path with spaces would be quoted.
 
-Tested on Linux, macOS and WSL2.
+**Where it has run.** Every path is written to behave the same on Linux, macOS,
+WSL and Windows, and one implementation serves all four. Verified end to end on
+Linux and WSL2. The macOS and Windows paths follow documented behavior and have
+not yet been run on a real machine — if you get there first, an issue saying
+what happened is worth a lot.
 
 ## The status line
 
@@ -215,15 +233,19 @@ tabs tells you which one wants you:
 ```
 🟢 my-project      Claude is working
 🔴 my-project      blocked on you: a permission, a question, a choice
-🟧 my-project      idle — nothing is asked of you, ready for the next request
+🟡 my-project      idle — nothing is asked of you, ready for the next request
 🟨 my-project      the session ended
 ```
 
 Red is spent on one thing: Claude cannot go on without you. Idle gets its own
 marker because *nothing is asked of you* and *answer me* are different
-situations, and a red that fires for both stops meaning anything. The two
-resting states are squares, so they part from red by shape as well as hue —
-orange alone reads as red from across a tab strip.
+situations, and a red that fires for both stops meaning anything.
+
+The two resting states share one hue and part by shape. Orange was tried for
+idle and read as red from across a tab strip — the eye catches the warm/cold
+split long before it resolves orange from red, so the only safe distance from
+red is yellow. Circle against square then separates idle from a session that
+has ended, without a third color.
 
 Green also covers a turn that ended only to wait on background work — a
 subagent, a workflow, a `run_in_background` command, a scheduled wakeup. The

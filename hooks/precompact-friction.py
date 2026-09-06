@@ -107,7 +107,18 @@ def main():
         # must not make /compact unusable.
         sys.exit(0)
 
-    print(REVIEW, file=sys.stderr)
+    # stderr is both the channel back to Claude and what the user sees on
+    # screen. Printing the whole brief there hands the user a wall of text
+    # addressed to someone else, which reads as a demand on them. So the brief
+    # goes to a file and stderr carries one line naming it.
+    try:
+        brief = STATE_DIR / "friction-review.md"
+        brief.write_text(REVIEW, encoding="utf-8")
+        print(f"Compaction held back: review this session's friction first. "
+              f"Read {brief} and follow it, then tell the user to run /compact again.",
+              file=sys.stderr)
+    except OSError:
+        print(REVIEW, file=sys.stderr)  # no file? the brief still has to arrive
     sys.exit(2)
 
 

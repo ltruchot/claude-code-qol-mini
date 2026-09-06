@@ -17,7 +17,7 @@ contributeurs, les commits devront passer à l'anglais.
 
 | Fonction | Fichier | Ce qu'on voit |
 |---|---|---|
-| Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
+| Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
 | Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟡 idle |
 | Revue kaizen | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` s'arrête et te dit de lancer `/kaizen` ; la revue faite, il passe |
@@ -189,7 +189,7 @@ et virgule finale : les trois survivent.
 
 Sur un modèle 1M, 200k valent 20 % de la fenêtre : une jauge fenêtre-relative serait quasi vide à
 l'instant précis où l'alerte doit se voir. Barre et fraction partagent le même dénominateur —
-`250k/200k` est le signal.
+`250/200k` est le signal.
 
 ## Méthode : comment on a trouvé ces choses
 

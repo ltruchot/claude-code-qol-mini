@@ -18,7 +18,7 @@ read at startup: changing a threshold through them takes effect at once.
 Colors and the gauge follow fixed token thresholds, not a share of the window:
 what matters is the absolute size of what is being re-sent on every request. The
 readout is shown over ALERT_AT rather than over the window size, so crossing the
-threshold reads as an over-unity fraction (250k/200k) instead of shrinking away
+threshold reads as an over-unity fraction (250/200k) instead of shrinking away
 against a 1M denominator.
 """
 import json
@@ -52,16 +52,22 @@ ORANGE = "\033[38;5;208m"   # 256-color orange, distinct from the warning yellow
 RED = "\033[91m"
 
 
-def human(tokens):
-    """1_000_000 -> '1M', 214_500 -> '214k', 700 -> '0.7k'."""
+def human(tokens, unit=True):
+    """1_000_000 -> '1M', 214_500 -> '214k', 700 -> '0.7k'.
+
+    Without the unit, for the left side of a fraction that already carries it
+    on the right: '0k/200k' reads as the word "Ok" before it reads as a count.
+    """
     if tokens >= 1_000_000:
         value = tokens / 1_000_000
-        return f"{value:.0f}M" if value == int(value) else f"{value:.1f}M"
-    if tokens == 0:
-        return "0k"
-    if tokens < 1000:
-        return f"{tokens / 1000:.1f}k"
-    return f"{tokens / 1000:.0f}k"
+        text = f"{value:.0f}M" if value == int(value) else f"{value:.1f}M"
+    elif tokens == 0:
+        text = "0k"
+    elif tokens < 1000:
+        text = f"{tokens / 1000:.1f}k"
+    else:
+        text = f"{tokens / 1000:.0f}k"
+    return text if unit else text[:-1]
 
 
 def from_transcript(path):
@@ -126,8 +132,12 @@ def main():
     filled = min(BAR_WIDTH, max(0, round(used / ALERT_AT * BAR_WIDTH)))
     gauge = f"{color}{'▓' * filled}{RESET}{DIM}{'░' * (BAR_WIDTH - filled)}{RESET}"
 
-    count = f"{color}{BOLD}{'! ' if used >= ALERT_AT else ''}{human(used)}{RESET}"
-    count += f"{DIM}/{human(ALERT_AT)}{RESET}"
+    # The unit belongs to the denominator alone -- unless the two sides don't
+    # share it, where dropping it would turn 1.2M into a number read as 1.2k.
+    limit = human(ALERT_AT)
+    both_in = human(used)[-1] == limit[-1]
+    count = f"{color}{BOLD}{'! ' if used >= ALERT_AT else ''}{human(used, not both_in)}{RESET}"
+    count += f"{DIM}/{limit}{RESET}"
 
     line = f"{BOLD}{WHITE}{model}{RESET} {gauge} {count}"
 

@@ -56,11 +56,11 @@ compacted() {
         *) printf '  FAIL  %-34s wanted %s, got %s\n' "$label" "$want" "$out"; failures=$((failures + 1)) ;;
     esac
 }
-compacted "boundary, no turn since" "9k"
+compacted "boundary, no turn since" "9"
 printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":12000}}}' >> "$TR"
-compacted "a turn after the boundary wins" "12k"
+compacted "a turn after the boundary wins" "12"
 printf '%s\n' '{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":400000}}}' >> "$TR"
-compacted "a subagent turn is ignored" "12k"
+compacted "a subagent turn is ignored" "12"
 rm -f "$TR"
 
 echo

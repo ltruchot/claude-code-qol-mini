@@ -17,9 +17,9 @@ machine, an account, or a project. Re-running the installer changes nothing
 unless something actually differs.
 
 ```
-Opus 5 (1M context)  ▓▓▓▓░░░░░░  88k/200k   · my-project     green
-Opus 5 (1M context)  ▓▓▓▓▓▓░░░░  121k/200k  · my-project     orange
-Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250k/200k · my-project    red
+Opus 5 (1M context)  ▓▓▓▓░░░░░░  88/200k     · my-project    green
+Opus 5 (1M context)  ▓▓▓▓▓▓░░░░  121/200k    · my-project    orange
+Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250/200k  · my-project    red
 ```
 
 ## Install
@@ -146,7 +146,7 @@ request, prompt cache included.
 **The gauge fills toward the alert threshold, not toward the context window.**
 On a 1M model, 200k is 20% of the window: a window-relative gauge would still
 look nearly empty at the exact moment you want to be warned. The readout uses
-the same denominator, which is why crossing it reads as `250k/200k` rather than
+the same denominator, which is why crossing it reads as `250/200k` rather than
 shrinking away against a large number.
 
 | | Default | Environment variable |

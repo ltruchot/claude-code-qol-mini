@@ -3,6 +3,11 @@
 Harnais de confort pour Claude Code, publié sur GitHub : `ltruchot/vscode-comfy-claude-config`.
 Il doit marcher sur **Linux, macOS, WSL et Windows**, dans **VS Code comme dans Cursor**.
 
+**Son intention, qui décide des arbitrages** : un modèle qui ne travaille pas est un modèle à qui on
+pourrait donner quelque chose. Les signaux répondent donc à « est-ce que ça tourne ? » avant toute
+autre question — d'où le vert pour l'activité, et non pour le repos. Savoir d'un coup d'œil lequel
+t'attend est la moitié du sujet ; les occuper tous est l'autre moitié.
+
 **Conventions de langue** : le `README.md`, le code et ses commentaires sont en **anglais** — le
 dépôt est public et l'outil s'adresse à tout le monde. Ce fichier et les messages de commit sont
 en **français**. C'est l'usage constaté, pas une règle arbitrée : si le dépôt gagne des
@@ -14,7 +19,7 @@ contributeurs, les commits devront passer à l'anglais.
 |---|---|---|
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
-| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟡 idle · 🟨 session finie |
+| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟡 idle |
 | Revue kaizen | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` s'arrête et te dit de lancer `/kaizen` ; la revue faite, il passe |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
@@ -61,6 +66,12 @@ Le marqueur est donc un caractère dans le **nom**, jamais une pastille.
 *À ne pas faire non plus* : espérer une animation. Les hooks tirent sur des événements, pas sur une
 horloge — on a un état stable, jamais un spinner. C'est la même raison qui oblige à faire taire
 Claude Code : seul celui qui redessine en continu peut animer.
+
+*Pas d'état « session terminée »* : constaté à l'usage, il n'apparaît jamais ou quelques
+millisecondes. Cause probable — le shell repeint son propre titre dès que Claude Code rend le
+prompt — **non vérifiée** ; ce qui est certain, c'est que personne ne le voit, et un état que
+personne ne voit ne se porte pas. `SessionEnd` reste dans `EVENTS` sans handler : c'est la purge qui
+retire celui des installations antérieures.
 
 *Ce que ça coûte, et qui est réel* : `${sequence}` s'applique à **tous** les terminaux. Un onglet
 zsh cesse d'afficher `zsh` et affiche `utilisateur@hôte:/chemin/très/long`. D'où l'option
@@ -201,7 +212,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 60 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 61 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -210,13 +221,13 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Fils ouverts
 
 - **Le format du marqueur reste à choisir.** Réglable sans toucher au code par `CC_TAB_WORKING`,
-  `CC_TAB_BLOCKED`, `CC_TAB_IDLE`, `CC_TAB_STOPPED` dans le bloc `env` — emoji, `[..]`, `(working)`.
+  `CC_TAB_BLOCKED`, `CC_TAB_IDLE` dans le bloc `env` — emoji, `[..]`, `(working)`.
   Les emoji rendent correctement, c'est constaté ; reste à savoir ce qui se repère le mieux dans une
-  liste. Les couleurs sont tranchées : le **rouge ne sert qu'au blocage** — permission, question,
-  choix — sinon il ne veut plus rien dire. Les deux états de repos partagent **le jaune** et se
-  séparent par la **forme** : rond pour l'idle, carré pour la session finie. L'orange a été essayé
-  deux fois pour l'idle et lu comme du rouge à distance — l'œil saisit le chaud/froid bien avant de
-  résoudre l'orange du rouge, donc la seule distance sûre au rouge est le jaune.
+  liste. Les couleurs sont tranchées : **vert = ça tourne**, l'état qu'on veut voir ; le **rouge ne
+  sert qu'au blocage** — permission, question, choix — sinon il ne veut plus rien dire ; **jaune pour
+  l'idle**, libre et sans travail. L'orange a été essayé deux fois pour l'idle et lu comme du rouge à
+  distance — l'œil saisit le chaud/froid bien avant de résoudre l'orange du rouge, donc la seule
+  distance sûre au rouge est le jaune.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
 - **La branche `auto` ne fait plus rien, et c'est définitif.** Elle passait par
@@ -231,7 +242,7 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                      # 60 contrôles, sans rien installer
+./test.sh                      # 61 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

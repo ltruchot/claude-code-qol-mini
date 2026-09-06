@@ -12,30 +12,38 @@ the conversation name -- and redraws it continuously, so it wins any race
 against ours; set CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 to silence it and let
 this marker stand.
 
-Usage: tab-state.py <working|blocked|idle|stopped>
+Usage: tab-state.py <working|blocked|idle>
 """
 import json
 import os
 import sys
 
-# Override any of these with CC_TAB_WORKING, CC_TAB_BLOCKED, CC_TAB_IDLE,
-# CC_TAB_STOPPED -- an emoji, an ASCII tag like "[..]", a word like "(working)",
-# anything the tab will render. An empty value drops the marker for that state.
+# Override any of these with CC_TAB_WORKING, CC_TAB_BLOCKED or CC_TAB_IDLE --
+# an emoji, an ASCII tag like "[..]", a word like "(working)", anything the tab
+# will render. An empty value drops the marker for that state.
+#
+# Green is the state you want to see. This harness exists to keep models busy as
+# much as to tell you which one needs you, so the marker answers "is it running"
+# before it answers anything else: green means work is happening, and a tab that
+# is not green is a tab asking for something -- an answer, or a next task.
 #
 # Red is spent on one thing only: Claude cannot go on without you. Idle gets its
 # own marker because "nothing is asked of you" and "answer me" are different
 # situations, and a red that fires for both stops meaning anything.
 #
-# The two resting states share one hue and part by shape. Orange was tried for
-# idle and read as red from across a tab strip, twice -- the eye catches the
-# warm/cold split long before it resolves orange from red, so the only safe
-# distance from red is yellow. Circle against square then separates idle from a
-# session that has ended, at a glance and without a third color.
+# Idle is yellow, not orange. Orange was tried twice and read as red from across
+# a tab strip: the eye catches the warm/cold split long before it resolves
+# orange from red, so the only safe distance from red is yellow.
+#
+# There is no marker for a session that has ended. Observed in use: it never
+# shows, or shows for a few milliseconds. The likely cause is the shell
+# repainting its own title the moment Claude Code hands back the prompt, but
+# that was not confirmed -- what is certain is that nobody ever sees the state,
+# and a state nobody sees is not worth carrying.
 MARKERS = {
     "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green circle
     "blocked": os.environ.get("CC_TAB_BLOCKED", "\U0001F534"),  # red circle
     "idle": os.environ.get("CC_TAB_IDLE", "\U0001F7E1"),        # yellow circle
-    "stopped": os.environ.get("CC_TAB_STOPPED", "\U0001F7E8"),  # yellow square
 }
 
 

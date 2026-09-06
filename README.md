@@ -6,6 +6,12 @@ when Claude needs you and when it has finished, and a review at compaction time
 so the same pitfall is not paid twice. An opt-in marker on the terminal tab is
 available too, with its cost spelled out below.
 
+It is built around one idea: **a model that is not working is a model you could
+be giving something to.** So the signals answer *is it running* before they
+answer anything else — green means work is happening, and anything that is not
+green is a session asking for something, an answer or a next task. Knowing which
+one needs you at a glance is half of it; keeping them all busy is the other half.
+
 Everything lives in your Claude Code config directory. Nothing is tied to a
 machine, an account, or a project. Re-running the installer changes nothing
 unless something actually differs.
@@ -231,21 +237,28 @@ A colored marker in front of the terminal name, so a wall of identical `claude`
 tabs tells you which one wants you:
 
 ```
-🟢 my-project      Claude is working
+🟢 my-project      working
 🔴 my-project      blocked on you: a permission, a question, a choice
-🟡 my-project      idle — nothing is asked of you, ready for the next request
-🟨 my-project      the session ended
+🟡 my-project      idle — free, and waiting for something to do
 ```
+
+**Green is the state you want to see.** The marker exists to keep sessions busy
+as much as to tell you which one needs you, so the first question it answers is
+*is it running*. Two tabs out of green are two tabs to deal with: one wants an
+answer, the other wants work.
 
 Red is spent on one thing: Claude cannot go on without you. Idle gets its own
 marker because *nothing is asked of you* and *answer me* are different
 situations, and a red that fires for both stops meaning anything.
 
-The two resting states share one hue and part by shape. Orange was tried for
-idle and read as red from across a tab strip — the eye catches the warm/cold
-split long before it resolves orange from red, so the only safe distance from
-red is yellow. Circle against square then separates idle from a session that
-has ended, without a third color.
+Idle is yellow rather than orange. Orange was tried twice and read as red from
+across a tab strip — the eye catches the warm/cold split long before it resolves
+orange from red, so the only safe distance from red is yellow.
+
+There is no marker for a session that has ended: in use it never shows, or
+shows for a few milliseconds — most likely because the shell repaints its own
+title the moment Claude Code hands back the prompt. A state nobody sees is not
+worth carrying.
 
 Green also covers a turn that ended only to wait on background work — a
 subagent, a workflow, a `run_in_background` command, a scheduled wakeup. The
@@ -288,7 +301,7 @@ mixed list it often is not. `./install-vscode.sh --revert` undoes the setting.
 
 ### Changing the markers
 
-Set `CC_TAB_WORKING`, `CC_TAB_BLOCKED`, `CC_TAB_IDLE` or `CC_TAB_STOPPED` in the `env` block of
+Set `CC_TAB_WORKING`, `CC_TAB_BLOCKED` or `CC_TAB_IDLE` in the `env` block of
 your `settings.json` — an emoji, an ASCII tag like `[..]`, a word like
 `(working)`, anything the tab renders. An empty value drops that marker.
 
@@ -390,7 +403,7 @@ $CLAUDE_CONFIG_DIR/
 │   └── done.wav
 └── settings.json          merged: statusLine, and the hooks for
                            Notification, Stop, UserPromptSubmit,
-                           SessionStart, SessionEnd and PreCompact
+                           SessionStart and PreCompact
 ```
 
 ## References

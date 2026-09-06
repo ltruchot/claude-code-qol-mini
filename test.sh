@@ -302,7 +302,7 @@ fi
 # session_crons precisely so a hook can tell "done" from "paused".
 parked() {
     local label="$1" payload="$2" want="$3" out
-    out="$(printf '%s' "$payload" | CC_TAB_IDLE='ORANGE' CC_TAB_WORKING='GREEN' \
+    out="$(printf '%s' "$payload" | CC_TAB_IDLE='YELLOW' CC_TAB_WORKING='GREEN' \
            python3 "$REPO/hooks/tab-state.py" idle)"
     case "$out" in
         *"$want"*) printf '  ok    %-34s %s\n' "$label" "$want" ;;
@@ -310,29 +310,44 @@ parked() {
     esac
 }
 parked "an empty registry rests"   \
-       '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[]}' ORANGE
+       '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[]}' YELLOW
 parked "a running subagent stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[{"id":"t1","type":"subagent","status":"running"}],"session_crons":[]}' GREEN
 parked "a background shell stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[{"id":"t2","type":"shell","status":"running"}]}' GREEN
 parked "a scheduled wakeup stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[{"id":"c1","schedule":"* * * * *"}]}' GREEN
-parked "a payload without the arrays"  '{"cwd":"/tmp/demo"}' ORANGE
+parked "a payload without the arrays"  '{"cwd":"/tmp/demo"}' YELLOW
 
-# Four distinct markers, or the tab strip stops carrying information.
+# Distinct markers, or the tab strip stops carrying information.
 if python3 -c "
 import os, subprocess, sys
 seen = {}
-for state in ('working', 'blocked', 'idle', 'stopped'):
+for state in ('working', 'blocked', 'idle'):
     out = subprocess.run([sys.executable, '$REPO/hooks/tab-state.py', state],
                          input='{\"cwd\":\"/tmp/demo\"}', capture_output=True,
                          text=True).stdout
     seen[state] = out
-assert len(set(seen.values())) == 4, seen
+assert len(set(seen.values())) == 3, seen
 "; then
-    echo "  ok    four states, four markers"
+    echo "  ok    three states, three markers"
 else
     echo "  FAIL  markers collide"; failures=$((failures + 1))
+fi
+
+# A session that ends leaves no marker: the shell repaints its title within
+# milliseconds, so the installer must register no SessionEnd handler of ours.
+if CLAUDE_CONFIG_DIR="$(mktemp -d)" python3 -c "
+import json, os, pathlib, subprocess, sys
+target = pathlib.Path(os.environ['CLAUDE_CONFIG_DIR'])
+subprocess.run([sys.executable, '$REPO/install.py', '--tab-state', '--no-sounds'],
+               stdout=subprocess.DEVNULL, stdin=subprocess.DEVNULL, check=True)
+data = json.loads((target / 'settings.json').read_text())
+assert 'SessionEnd' not in data.get('hooks', {}), data['hooks']['SessionEnd']
+"; then
+    echo "  ok    no SessionEnd handler is added"
+else
+    echo "  FAIL  a SessionEnd handler came back"; failures=$((failures + 1))
 fi
 
 # The rule lives in two files that are installed separately. They must agree.

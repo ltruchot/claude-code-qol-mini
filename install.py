@@ -317,7 +317,8 @@ def settings_for(chosen, target, python, data):
         # configured, a session that emitted nothing yet shows no marker of ours.
         add("SessionStart", [hook("hooks/tab-state.py", "idle")])
         add("UserPromptSubmit", [hook("hooks/tab-state.py", "working")])
-        add("SessionEnd", [hook("hooks/tab-state.py", "stopped")])
+    # SessionEnd stays in EVENTS but gets no handler: an older install put a
+    # "stopped" marker there, and the purge above is what removes it.
     if chosen["kaizen"]:
         add("PreCompact", [hook("hooks/precompact-kaizen.py")])
 

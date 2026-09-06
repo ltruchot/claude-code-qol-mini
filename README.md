@@ -2,9 +2,9 @@
 
 A small, comfortable [Claude Code](https://code.claude.com) setup: a status line
 that always shows how much context you are carrying, two sounds that tell you
-when Claude wants you and when it has stopped working, a coloured marker on the
-VS Code terminal tab so you can see which session needs you, and a review at
-compaction time so the same pitfall is not paid twice.
+when Claude wants you and when it has stopped working, and a review at compaction time so
+the same pitfall is not paid twice. An opt-in marker on the VS Code terminal tab
+is available too, with a caveat spelled out below.
 
 Everything lives in your Claude Code config directory. Nothing here is tied to a
 machine, an account, or a project.
@@ -21,7 +21,6 @@ Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250k/200k · my-project  
 git clone https://github.com/ltruchot/vscode-comfy-claude-config.git
 cd vscode-comfy-claude-config
 ./install.sh
-./install-vscode.sh    # enables the terminal tab marker in VS Code
 ```
 
 Then **restart Claude Code** — `settings.json` is only read at startup.
@@ -140,57 +139,49 @@ rather tune them than replace them.
 the sounds, delete the `Notification` and `Stop` entries from the `hooks` block
 of your `settings.json`.
 
-## The terminal tab indicator (VS Code)
+## The terminal tab marker (VS Code) — opt-in, with a real caveat
 
-A coloured marker in front of the terminal name, so a wall of identical `claude`
-tabs tells you which one wants you:
+Install it with `./install.sh --tab-state`, then `./install-vscode.sh`. It is
+**not installed by default**, and the reason is measured rather than theoretical.
+
+The idea is a coloured marker in front of the terminal name, so a wall of
+identical `claude` tabs tells you which one wants you:
 
 ```
-🟠 my-project      a session just opened, waiting for you
+🟠 my-project      your turn, or a session just opened
 🟢 my-project      Claude is working
-🟠 my-project      your turn: it finished, or it is asking for something
 🔴 my-project      the session ended
 ```
 
-**This needs one VS Code setting**, because by default a tab is titled after the
-process name. `./install-vscode.sh` writes it for you:
+It works by setting `"terminal.integrated.tabs.title": "${sequence}"`, which
+makes the tab show the title programs send over OSC instead of the process name.
 
-```json
-{ "terminal.integrated.tabs.title": "${sequence}" }
-```
+**What that costs, and it is not small.** `${sequence}` applies to *every*
+terminal, and every program that sets a title now owns its tab:
 
-It finds every `settings.json` that applies — the local install for Code, Code -
-Insiders, VSCodium and Cursor, the machine-scope file a remote session uses
-(`~/.vscode-server/data/Machine/`), and, under WSL, the client's own user
-settings on the Windows side, since that is where a non-machine setting is read
-from. Then reload the window **and restart Claude Code itself** — reloading the
-editor reconnects to existing terminals rather than restarting them, so a
-running session keeps the settings it started with.
+- **Claude Code sets its own title** — the conversation's name. So the tab reads
+  `Refactoring the parser` rather than `claude`, and your marker holds only
+  until Claude Code writes again. The hooks fire at session start, on each
+  prompt, on each stop and on each notification, so in practice the marker is
+  usually the last writer — but it is a race, not a guarantee.
+- **Your shell sets one too.** A plain zsh or bash tab stops reading `zsh` and
+  starts reading `you@host:~/some/very/long/path`, which is longer, less useful,
+  and puts your username on screen.
 
-The file is **JSONC**: VS Code allows comments and trailing commas in it, and
-parsing then re-serialising would delete yours without a word. So the key is
-inserted textually after the opening brace and the rest of the file is left byte
-for byte as it was. Run it with `--dry-run` to see the targets first, `--force`
-to overwrite a value you already have.
+`./install-vscode.sh --revert` removes the setting and restores the default
+titles. Judge it on your own terminal list before keeping it: on a list of
+mostly-Claude tabs it can be worth it, on a mixed list it usually is not.
 
-Two things this is *not*, both worth knowing before you go looking for them:
-
-- **It is not the tab's icon colour.** VS Code exposes no escape sequence for
-  the tab icon or colour; only the extension that created a terminal can set
-  those, at creation time, via `window.createTerminal({ iconPath, color })`.
-  The [request to have Claude Code do it](https://github.com/anthropics/claude-code/issues/56925)
-  was closed as not planned for that reason. The title is the one channel a CLI
-  can drive, hence a coloured emoji rather than a dot.
-- **It does not fight Claude Code's own tab name.** That name comes from the
-  process title, which VS Code reads as `${process}` — a separate channel from
-  `${sequence}`. Neither overwrites the other.
+The marker is an emoji in the tab **name**, never the tab's icon or its colour:
+VS Code exposes no escape sequence for those, and only the extension that
+created a terminal can set them, at creation time, via
+`window.createTerminal({ iconPath, color })`. The
+[request to have Claude Code do it](https://github.com/anthropics/claude-code/issues/56925)
+was closed as not planned for that reason.
 
 The hook does not write to the terminal itself: hooks run without a controlling
-terminal, so they hand the escape sequence to Claude Code through the
-documented `terminalSequence` output field, and it does the writing.
-
-Change the markers at the top of `hooks/tab-state.py`. Skip the whole feature
-with `./install.sh --no-tab-state`.
+terminal, so they hand the escape sequence to Claude Code through the documented
+`terminalSequence` output field, and it does the writing.
 
 ## Capturing friction at compaction time
 

@@ -6,7 +6,7 @@
 # Without it the tab keeps its default title, taken from the process name, and
 # the coloured marker the hooks emit is never displayed.
 #
-# Usage: ./install-vscode.sh [--dry-run] [--force]
+# Usage: ./install-vscode.sh [--dry-run] [--force] [--revert]
 set -euo pipefail
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -36,6 +36,7 @@ VALUE = "${sequence}"
 
 dry_run = "--dry-run" in sys.argv
 force = "--force" in sys.argv
+revert = "--revert" in sys.argv
 
 
 def candidates():
@@ -76,6 +77,35 @@ def strip_jsonc(text):
     text = re.sub(r"(^|\s)//[^\n]*", r"\1", text)
     text = re.sub(r",(\s*[}\]])", r"\1", text)
     return text
+
+
+def unpatch(path):
+    """Remove the key, textually, leaving the rest of the file untouched."""
+    if not path.exists():
+        return
+    original = path.read_text(encoding="utf-8")
+    updated = re.sub(
+        r'^[ \t]*"%s"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?[ \t]*\r?\n' % re.escape(KEY),
+        "",
+        original,
+        count=1,
+        flags=re.M,
+    )
+    if updated == original:
+        print(f"  not present   {path}")
+        return
+    try:
+        json.loads(strip_jsonc(updated))
+    except ValueError as error:
+        print(f"  SKIPPED       {path} (result would not parse: {error})")
+        return
+    if dry_run:
+        print(f"  would revert  {path}")
+        return
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    shutil.copy2(path, path.with_name(f"settings.json.bak-{stamp}"))
+    path.write_text(updated, encoding="utf-8")
+    print(f"  reverted      {path}")
 
 
 def patch(path):
@@ -135,7 +165,7 @@ if not targets:
     sys.exit(0)
 
 for path in targets:
-    patch(path)
+    (unpatch if revert else patch)(path)
 
 print()
 print("Reload the VS Code window (Developer: Reload Window) to apply.")

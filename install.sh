@@ -10,17 +10,17 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 WITH_STATUSLINE=1
 WITH_SOUNDS=1
-WITH_TAB_STATE=1
+WITH_TAB_STATE=0   # opt-in: see the caveat in README.md
 WITH_FRICTION=1
 
 for arg in "$@"; do
     case "$arg" in
         --no-statusline) WITH_STATUSLINE=0 ;;
         --no-sounds)     WITH_SOUNDS=0 ;;
-        --no-tab-state)  WITH_TAB_STATE=0 ;;
+        --tab-state)     WITH_TAB_STATE=1 ;;
         --no-friction)   WITH_FRICTION=0 ;;
         -h|--help)
-            echo "usage: install.sh [--no-statusline] [--no-sounds] [--no-tab-state] [--no-friction]"
+            echo "usage: install.sh [--no-statusline] [--no-sounds] [--tab-state] [--no-friction]"
             echo
             echo "Installs into \$CLAUDE_CONFIG_DIR, or ~/.claude when unset."
             exit 0
@@ -113,6 +113,11 @@ if os.environ.get("CLAUDE_CONFIG_DIR"):
 
 sounds = os.environ["WITH_SOUNDS"] == "1"
 tabs = os.environ["WITH_TAB_STATE"] == "1"
+friction = os.environ["WITH_FRICTION"] == "1"
+
+OURS = ("sounds/play.sh", "hooks/tab-state.py", "hooks/precompact-friction.py")
+EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
+          "SessionEnd", "PreCompact")
 
 
 def handler(command):
@@ -127,40 +132,52 @@ def tab(state):
     return handler(f"python3 {prefix}/hooks/tab-state.py {state}")
 
 
-if sounds or tabs:
-    hooks = data.setdefault("hooks", {})
+hooks = data.get("hooks", {})
 
-    # Claude is blocked on you: a permission prompt, a question, an idle wait.
-    attention = []
-    if sounds:
-        attention.append(sound("needs-you"))
-    if tabs:
-        attention.append(tab("waiting"))
-    hooks["Notification"] = [{
-        "matcher": "permission_prompt|idle_prompt|agent_needs_input",
-        "hooks": attention,
-    }]
+# Drop every handler this installer owns before re-adding the enabled ones, so
+# that turning a feature off actually uninstalls it instead of leaving its hooks
+# behind. Anything the user added themselves is matched by none of OURS and
+# survives untouched.
+for event in EVENTS:
+    groups = []
+    for group in hooks.get(event, []):
+        kept = [
+            h for h in group.get("hooks", [])
+            if not any(marker in h.get("command", "") for marker in OURS)
+        ]
+        if kept:
+            groups.append({**group, "hooks": kept})
+    if groups:
+        hooks[event] = groups
+    else:
+        hooks.pop(event, None)
 
-    # Claude finished the turn: also your move, so the same marker.
-    finished = []
-    if sounds:
-        finished.append(sound("done"))
-    if tabs:
-        finished.append(tab("waiting"))
-    hooks["Stop"] = [{"hooks": finished}]
 
-    if tabs:
-        # Claim the tab as soon as the session exists: with ${sequence}
-        # configured, a session that emitted nothing yet shows no marker.
-        hooks["SessionStart"] = [{"hooks": [tab("waiting")]}]
-        hooks["UserPromptSubmit"] = [{"hooks": [tab("working")]}]
-        hooks["SessionEnd"] = [{"hooks": [tab("stopped")]}]
+def add(event, handlers, matcher=None):
+    if not handlers:
+        return
+    group = {"hooks": handlers}
+    if matcher:
+        group["matcher"] = matcher
+    hooks.setdefault(event, []).append(group)
 
-if os.environ["WITH_FRICTION"] == "1":
-    hooks = data.setdefault("hooks", {})
-    hooks["PreCompact"] = [{"hooks": [
-        handler(f"python3 {prefix}/hooks/precompact-friction.py"),
-    ]}]
+
+attention = ([sound("needs-you")] if sounds else []) + ([tab("waiting")] if tabs else [])
+add("Notification", attention, "permission_prompt|idle_prompt|agent_needs_input")
+add("Stop", ([sound("done")] if sounds else []) + ([tab("waiting")] if tabs else []))
+if tabs:
+    # Claim the tab as soon as the session exists: with ${sequence} configured,
+    # a session that emitted nothing yet shows no marker of ours.
+    add("SessionStart", [tab("waiting")])
+    add("UserPromptSubmit", [tab("working")])
+    add("SessionEnd", [tab("stopped")])
+if friction:
+    add("PreCompact", [handler(f"python3 {prefix}/hooks/precompact-friction.py")])
+
+if hooks:
+    data["hooks"] = hooks
+else:
+    data.pop("hooks", None)
 
 settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 print(f"  settings      {settings}")

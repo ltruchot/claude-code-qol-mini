@@ -41,6 +41,29 @@ if printf '%s' "{$model,\"context_window\":{\"total_input_tokens\":42000},\"cost
 fi
 
 echo
+echo "Context after compaction"
+# The turns above a compact_boundary were just summarized away. Reporting one of
+# them is how the readout used to stay on its pre-compact figure.
+TR="$(mktemp)"
+printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":89000,"cache_read_input_tokens":748}}}' > "$TR"
+printf '%s\n' '{"type":"system","subtype":"compact_boundary","compactMetadata":{"trigger":"manual","preTokens":89748,"postTokens":9310}}' >> "$TR"
+compacted() {
+    local label="$1" want="$2" out
+    out="$(printf '%s' "{$model,\"context_window\":{\"total_input_tokens\":0},\"transcript_path\":\"$TR\"}" \
+           | $SL | sed 's/\x1b\[[0-9;]*m//g')"
+    case "$out" in
+        *"$want"/200k*) printf '  ok    %-34s %s\n' "$label" "$out" ;;
+        *) printf '  FAIL  %-34s wanted %s, got %s\n' "$label" "$want" "$out"; failures=$((failures + 1)) ;;
+    esac
+}
+compacted "boundary, no turn since" "9k"
+printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":12000}}}' >> "$TR"
+compacted "a turn after the boundary wins" "12k"
+printf '%s\n' '{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":400000}}}' >> "$TR"
+compacted "a subagent turn is ignored" "12k"
+rm -f "$TR"
+
+echo
 echo "Player"
 python3 -c "import ast,pathlib;ast.parse(pathlib.Path('$REPO/sounds/play.py').read_text())" && echo "  ok    parses"
 for case in "unknown-sound-name:missing file" ":no argument"; do
@@ -83,7 +106,7 @@ else
     printf '  FAIL  %-34s no token at %s\n' "--release writes the token" "$TOKEN"
     failures=$((failures + 1))
 fi
-kaizen "a recorded review is honoured"  "$manual" 0
+kaizen "a recorded review is honored"  "$manual" 0
 if [ -e "$TOKEN" ]; then
     printf '  FAIL  %-34s token survived\n' "the token is consumed"; failures=$((failures + 1))
 else

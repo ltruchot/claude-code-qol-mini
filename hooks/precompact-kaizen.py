@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Hold back /compact until this session's friction has been reviewed.
 
-Compaction is the moment a session's hard-won detail is about to be summarised
+Compaction is the moment a session's hard-won detail is about to be summarized
 away, which makes it the right moment to ask what should outlive it.
 
 The review itself happens in the `kaizen` skill, not here, and that split is
@@ -19,7 +19,7 @@ one item at a time, and ends by calling this same script with --release.
 
 What releases the block is a token file keyed by the working directory, so the
 skill can write it without knowing the session id, and so running /kaizen on
-its own arms the next /compact. The token is consumed as it is honoured, which
+its own arms the next /compact. The token is consumed as it is honored, which
 re-arms the review for the compaction after that.
 
 Automatic compaction is never blocked: it fires because the context is full,
@@ -44,7 +44,7 @@ CONFIG_DIR = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR", pathlib.Path.home(
 STATE_DIR = CONFIG_DIR / "state"
 STALE_AFTER_SECONDS = 7 * 24 * 3600
 
-# Tokens from superseded versions of this hook, swept but never honoured, so an
+# Tokens from superseded versions of this hook, swept but never honored, so an
 # upgrade does not leave files behind that nothing will ever consume.
 LEGACY_GLOBS = ("friction-*.done", "friction-*.guard")
 
@@ -105,7 +105,7 @@ def main():
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         sweep_stale(time.time())
         if token.exists():
-            # A recorded review: honour it, and consume the token so the next
+            # A recorded review: honor it, and consume the token so the next
             # /compact in this directory is reviewed too.
             token.unlink()
             sys.exit(0)

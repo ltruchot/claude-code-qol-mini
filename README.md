@@ -146,7 +146,7 @@ of your `settings.json`.
 
 ## The terminal tab marker (VS Code and Cursor)
 
-A coloured marker in front of the terminal name, so a wall of identical `claude`
+A colored marker in front of the terminal name, so a wall of identical `claude`
 tabs tells you which one wants you:
 
 ```
@@ -199,7 +199,7 @@ Claude Code has to be silenced — only whoever redraws continuously can animate
 
 ### What it is not
 
-The marker is an emoji in the tab **name**, never the tab's icon or its colour.
+The marker is an emoji in the tab **name**, never the tab's icon or its color.
 VS Code exposes no escape sequence for those, and only the extension that
 created a terminal can set them, at creation time, via
 `window.createTerminal({ iconPath, color })`. The
@@ -210,9 +210,9 @@ The hook does not write to the terminal itself: hooks run without a controlling
 terminal, so they hand the sequence to Claude Code through `terminalSequence`,
 and it does the writing.
 
-## Kaizen: reviewing friction before it is summarised away
+## Kaizen: reviewing friction before it is summarized away
 
-Compaction is the moment a session's hard-won detail is about to be summarised
+Compaction is the moment a session's hard-won detail is about to be summarized
 away, which makes it exactly the right moment to ask what should outlive it.
 
 With this installed, `/compact` stops with one line:
@@ -239,7 +239,7 @@ half-covered it, or is dropped because the file said it already. Finding nothing
 is the normal outcome.
 
 The review then releases the block, and `/compact` goes through. The token is
-consumed as it is honoured, so the next compaction is armed again. You can also
+consumed as it is honored, so the next compaction is armed again. You can also
 run `/kaizen` on its own at any time; doing so arms the next `/compact` too.
 
 Three design points that are not arbitrary:

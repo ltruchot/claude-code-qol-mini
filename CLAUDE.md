@@ -178,7 +178,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 33 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 36 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -206,7 +206,7 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                      # 33 contrôles, sans rien installer
+./test.sh                      # 36 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

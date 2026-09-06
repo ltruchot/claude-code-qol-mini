@@ -195,6 +195,27 @@ The same probe showed the in-flight registry lagging: a `SubagentStop` payload
 listed its own subagent as `status: "running"`. Do not treat
 `background_tasks` as exact at the instant a task settles.
 
+### Nothing announces a turn that ends on a question
+
+The notification types cover permissions, teammates and dialogs.
+`agent_needs_input` is emitted for a teammate or a computer-use prompt, never
+for the main session asking something in prose. A turn ending on "yes or no?"
+is a plain `Stop`, indistinguishable from a finished answer: it rang the
+end-of-turn note and went yellow, while a permission prompt in the next tab
+went red correctly.
+
+`last_assistant_message` on `Stop` is the only signal, and the reference points
+at it for this: hooks needing the final text of the turn should read it rather
+than the transcript, which lags the turn that just ended.
+
+*The rule*: the last non-empty line, stripped of markdown emphasis and closing
+brackets, ends with `?`. Then red, and the come-and-look note instead of the
+end-of-turn one. Background work still outranks it — the session wakes itself.
+
+*This is the only rule here that reads content rather than state*, so keep it
+narrow. It misses a question followed by a closing sentence. That is preferred
+to a red firing on any paragraph that holds a question mark.
+
 ### The release token is keyed on the DIRECTORY, not the session
 
 The skill has to write it from a plain shell, and it knows **where** it is far better
@@ -281,7 +302,7 @@ because `0k/200k` reads as the word "Ok" before it reads as a count.
 **Verified on this machine** (WSL2 + Cursor installed on the Windows side): the
 install → reinstall with different options → uninstall cycle, preserving `model`,
 `permissions`, `enabledPlugins`, `autoMode` and hooks written by the user; the purge
-of disabled options; the tab marker **seen on screen**; the 72 checks in `test.sh`.
+of disabled options; the tab marker **seen on screen**; the 75 checks in `test.sh`.
 
 **Never run on a real machine**: the **macOS** and **native Windows** paths —
 `afplay`, `winsound`, and each editor's settings location. Written from documented
@@ -320,7 +341,7 @@ tested.
 ## Testing
 
 ```bash
-./test.sh                           # 72 checks, installs nothing
+./test.sh                           # 75 checks, installs nothing
 ./install.sh --tab-state --replace  # without --replace, an edited file makes it refuse
 ./install-vscode.sh                 # sets the editor, then start a NEW session
 ./uninstall.sh                      # removes what we laid down, and nothing else

@@ -59,6 +59,37 @@ def paused_on_background(data):
     return bool(data.get("background_tasks") or data.get("session_crons"))
 
 
+# Trailing characters that dress a line without ending it: markdown emphasis,
+# code ticks, closing brackets and quotes.
+QUESTION_TRAIL = " \t*_`\"')]}\u00bb\u201d"
+
+
+def ends_on_question(data):
+    """True when the turn ended on a question addressed to you.
+
+    Nothing in the runtime says so. The notification types cover permissions,
+    teammates and dialogs -- `agent_needs_input` is emitted for a teammate or a
+    computer-use prompt, never for the main session asking something in prose.
+    So a turn that ends on a question is a plain `Stop`, indistinguishable from
+    a finished answer, and it used to ring the end-of-turn sound and rest.
+
+    `last_assistant_message` is the only signal, and the reference points at it
+    for exactly this: hooks needing the final text of the turn should read it
+    rather than the transcript, which lags the turn that just ended.
+
+    Only the last non-empty line counts. A question buried mid-message is not
+    what the turn is waiting on. This is the one rule here that reads content
+    rather than state, so it is deliberately narrow: it misses a question
+    followed by a closing sentence, and that is preferred to a red that fires
+    on any paragraph holding a question mark.
+    """
+    for line in reversed((data.get("last_assistant_message") or "").splitlines()):
+        line = line.rstrip(QUESTION_TRAIL)
+        if line:
+            return line.endswith("?")
+    return False
+
+
 def find_sound(name):
     root = pathlib.Path(
         os.environ.get("CLAUDE_CONFIG_DIR", pathlib.Path.home() / ".claude")
@@ -118,7 +149,12 @@ def main():
         event = {}
     if paused_on_background(event):
         return  # the turn is not over; ringing here is the beep for nothing
-    sound = find_sound(sys.argv[1])
+    name = sys.argv[1]
+    # The end-of-turn note says "nothing is asked of you". A turn that ends on a
+    # question asks something, so it gets the note that means come and look.
+    if name == "done" and ends_on_question(event):
+        name = "needs-you"
+    sound = find_sound(name)
     if sound is None:
         return
     try:

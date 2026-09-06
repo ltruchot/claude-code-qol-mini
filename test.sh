@@ -341,6 +341,36 @@ sidechain "a subagent still paints red"  blocked "$SUB" RED
 sidechain "the main thread paints green" working \
           '{"cwd":"/tmp/demo","hook_event_name":"PostToolBatch"}' GREEN
 
+# A turn ending on a question is blocked on you. Nothing in the runtime says so
+# -- agent_needs_input is for teammates and dialogs -- so last_assistant_message
+# is the only signal, and Stop is the only event carrying it.
+asked() {
+    local label="$1" message="$2" want="$3" out
+    out="$(python3 -c "
+import json, sys
+print(json.dumps({'cwd': '/tmp/demo', 'hook_event_name': 'Stop',
+                  'last_assistant_message': sys.argv[1]}))" "$message" \
+          | CC_TAB_IDLE='YELLOW' CC_TAB_BLOCKED='RED' \
+            python3 "$REPO/hooks/tab-state.py" idle)"
+    case "$out" in
+        *"$want"*) printf '  ok    %-34s %s\n' "$label" "$want" ;;
+        *) printf '  FAIL  %-34s wanted %s, got %s\n' "$label" "$want" "$out"
+           failures=$((failures + 1)) ;;
+    esac
+}
+asked "a turn ending on a question"  "Yes or no?"    RED
+asked "an answer rests"              "Done, pushed." YELLOW
+# Parked on background work wins: the session wakes itself, question or not.
+out="$(python3 -c "
+import json
+print(json.dumps({'cwd': '/tmp/demo', 'last_assistant_message': 'Yes or no?',
+                  'background_tasks': [{'id': 't', 'type': 'subagent'}]}))" \
+      | CC_TAB_WORKING='GREEN' python3 "$REPO/hooks/tab-state.py" idle)"
+case "$out" in
+    *GREEN*) echo "  ok    background work outranks it" ;;
+    *) echo "  FAIL  background work lost: $out"; failures=$((failures + 1)) ;;
+esac
+
 # Distinct markers, or the tab strip stops carrying information.
 if python3 -c "
 import os, subprocess, sys
@@ -381,7 +411,7 @@ for name, rel in (("player", "sounds/play.py"), ("tabs", "hooks/tab-state.py")):
     spec = importlib.util.spec_from_file_location(name, repo / rel)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    loaded[name] = module.paused_on_background
+    loaded[name] = module
 cases = [
     ({}, False),
     ({"background_tasks": [], "session_crons": []}, False),
@@ -389,11 +419,28 @@ cases = [
     ({"session_crons": [{"id": "c"}]}, True),
 ]
 for payload, want in cases:
-    for name, fn in loaded.items():
-        assert fn(payload) is want, (name, payload)
+    for name, module in loaded.items():
+        assert module.paused_on_background(payload) is want, (name, payload)
+
+# The turn ends on a question, or it does not. Only the last non-empty line
+# counts: a question mark anywhere else is not what the turn waits on.
+questions = [
+    ({}, False),
+    ({"last_assistant_message": "Yes or no?"}, True),
+    ({"last_assistant_message": "**Yes or no?**"}, True),
+    ({"last_assistant_message": "Is that right?)"}, True),
+    ({"last_assistant_message": "Ready.\n\nShall I push?\n"}, True),
+    ({"last_assistant_message": "Done, pushed."}, False),
+    ({"last_assistant_message": "A question?\nThen a closing line."}, False),
+    ({"last_assistant_message": "See:\n\n| a | b |\n|---|---|"}, False),
+    ({"last_assistant_message": ""}, False),
+]
+for payload, want in questions:
+    for name, module in loaded.items():
+        assert module.ends_on_question(payload) is want, (name, payload)
 PY
 then
-    echo "  ok    both hooks share one rule"
+    echo "  ok    both hooks share both rules"
 else
     echo "  FAIL  the two hooks disagree"; failures=$((failures + 1))
 fi

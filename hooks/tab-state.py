@@ -66,6 +66,37 @@ def paused_on_background(data):
     return bool(data.get("background_tasks") or data.get("session_crons"))
 
 
+# Trailing characters that dress a line without ending it: markdown emphasis,
+# code ticks, closing brackets and quotes.
+QUESTION_TRAIL = " \t*_`\"')]}\u00bb\u201d"
+
+
+def ends_on_question(data):
+    """True when the turn ended on a question addressed to you.
+
+    Nothing in the runtime says so. The notification types cover permissions,
+    teammates and dialogs -- `agent_needs_input` is emitted for a teammate or a
+    computer-use prompt, never for the main session asking something in prose.
+    So a turn that ends on a question is a plain `Stop`, indistinguishable from
+    a finished answer, and it used to ring the end-of-turn sound and rest.
+
+    `last_assistant_message` is the only signal, and the reference points at it
+    for exactly this: hooks needing the final text of the turn should read it
+    rather than the transcript, which lags the turn that just ended.
+
+    Only the last non-empty line counts. A question buried mid-message is not
+    what the turn is waiting on. This is the one rule here that reads content
+    rather than state, so it is deliberately narrow: it misses a question
+    followed by a closing sentence, and that is preferred to a red that fires
+    on any paragraph holding a question mark.
+    """
+    for line in reversed((data.get("last_assistant_message") or "").splitlines()):
+        line = line.rstrip(QUESTION_TRAIL)
+        if line:
+            return line.endswith("?")
+    return False
+
+
 def hook_output(state, cwd):
     """The JSON body a hook prints to move the tab to `state`.
 
@@ -109,6 +140,10 @@ def main():
     # resumes on its own, so it stays green rather than going to rest.
     if state == "idle" and paused_on_background(data):
         state = "working"
+    # A turn that ends on a question is blocked on you, whatever the event that
+    # carried it says.
+    elif state == "idle" and ends_on_question(data):
+        state = "blocked"
 
     # Anything but strict JSON on stdout would be taken as plain text, and on
     # UserPromptSubmit plain text is injected into the conversation as context.

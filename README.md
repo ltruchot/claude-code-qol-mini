@@ -236,7 +236,7 @@ tabs tells you which one wants you:
 
 ```
 🟢 my-project      working
-🔴 my-project      blocked on you: a permission, a question, a choice
+🔴 my-project      blocked on you: a permission, a choice, or a turn ending on a question
 🟡 my-project      idle — free, and waiting for something to do
 ```
 

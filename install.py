@@ -48,7 +48,8 @@ OURS = ("sounds/play.py", "sounds/play.sh",
         "hooks/tab-state.py", "hooks/precompact-kaizen.py",
         "hooks/precompact-friction.py")
 EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
-          "SessionEnd", "PreCompact", "PostCompact")
+          "SessionEnd", "PreCompact", "PostCompact", "PostToolBatch",
+          "SubagentStop")
 
 # Files we used to deliver under other names. Pruning their handlers is not
 # enough: the scripts themselves have to go, or an install leaves dead copies
@@ -317,6 +318,14 @@ def settings_for(chosen, target, python, data):
         # configured, a session that emitted nothing yet shows no marker of ours.
         add("SessionStart", [hook("hooks/tab-state.py", "idle")])
         add("UserPromptSubmit", [hook("hooks/tab-state.py", "working")])
+        # Getting back to green is the hard half. No event fires when the model
+        # starts thinking -- the documented cycle is PreToolUse, the tool,
+        # PostToolUse, PostToolBatch, then the model call -- so these two are
+        # the last moments before work resumes. Without them the tab stays red
+        # from the permission prompt or the question you just answered, right
+        # through however long the answer takes.
+        add("PostToolBatch", [hook("hooks/tab-state.py", "working")])
+        add("SubagentStop", [hook("hooks/tab-state.py", "working")])
     # SessionEnd stays in EVENTS but gets no handler: an older install put a
     # "stopped" marker there, and the purge above is what removes it.
 

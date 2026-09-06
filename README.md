@@ -266,6 +266,13 @@ sound plays. `Stop` carries `background_tasks` and `session_crons` for exactly
 this distinction. If the session turns out to be idle after all, `idle_prompt`
 fires about a minute later and the marker settles to yellow.
 
+Green is reclaimed at every moment work resumes, not only when you submit a
+prompt. No event fires when the model starts thinking — the documented cycle is
+`PreToolUse`, the tool, `PostToolUse`, `PostToolBatch`, then the model call — so
+the marker rides `PostToolBatch`, which lands just before that call, and
+`SubagentStop`. Without them the tab stays red from the permission prompt or the
+question you just answered, through however long the answer takes.
+
 Green covers a compaction too. No turn brackets a `/compact`, so nothing else
 moves the marker and the tab would sit idle for however long it takes:
 `PreCompact` turns it green, `PostCompact` puts it back to yellow and rings the
@@ -409,7 +416,8 @@ $CLAUDE_CONFIG_DIR/
 │   └── done.wav
 └── settings.json          merged: statusLine, and the hooks for
                            Notification, Stop, UserPromptSubmit,
-                           SessionStart, PreCompact and PostCompact
+                           SessionStart, PostToolBatch, SubagentStop,
+                           PreCompact and PostCompact
 ```
 
 ## References

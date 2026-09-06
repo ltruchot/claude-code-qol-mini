@@ -164,6 +164,26 @@ probably land there. The online docs are silent; they only say that for most eve
 `stdout` goes to the debug log. Check at the next `/compact`: if it is unreadable,
 drop the `PreCompact` marker and leave the rest.
 
+### Nothing fires when the model starts thinking
+
+The documented cycle is `PreToolUse`, the tool, `PostToolUse`, `PostToolBatch`,
+then the model call, then `Stop`. There is no event before the model call, so
+"he is thinking now" cannot be observed directly. A long think with a short
+answer is invisible to hooks.
+
+Green therefore has to be reclaimed at the last moment before work resumes:
+`UserPromptSubmit` at the start of a turn, `PostToolBatch` before every
+subsequent model call, `SubagentStop` when the orchestrator picks back up.
+
+*What it fixes*: a permission prompt or a question sets red, you answer, and
+until this was wired nothing set green again. The tab stayed red for the whole
+answer, which is the one case where the marker was actively lying.
+
+*Cost*: `PostToolBatch` fires once per tool batch, so a tool-heavy turn spawns
+the hook dozens of times. Each run is a bare `json`/`os`/`sys` import and one
+line of output. Re-asserting a title that is already set costs nothing on
+screen.
+
 ### The release token is keyed on the DIRECTORY, not the session
 
 The skill has to write it from a plain shell, and it knows **where** it is far better
@@ -250,7 +270,7 @@ because `0k/200k` reads as the word "Ok" before it reads as a count.
 **Verified on this machine** (WSL2 + Cursor installed on the Windows side): the
 install → reinstall with different options → uninstall cycle, preserving `model`,
 `permissions`, `enabledPlugins`, `autoMode` and hooks written by the user; the purge
-of disabled options; the tab marker **seen on screen**; the 68 checks in `test.sh`.
+of disabled options; the tab marker **seen on screen**; the 69 checks in `test.sh`.
 
 **Never run on a real machine**: the **macOS** and **native Windows** paths —
 `afplay`, `winsound`, and each editor's settings location. Written from documented
@@ -289,7 +309,7 @@ tested.
 ## Testing
 
 ```bash
-./test.sh                           # 68 checks, installs nothing
+./test.sh                           # 69 checks, installs nothing
 ./install.sh --tab-state --replace  # without --replace, an edited file makes it refuse
 ./install-vscode.sh                 # sets the editor, then start a NEW session
 ./uninstall.sh                      # removes what we laid down, and nothing else

@@ -376,6 +376,30 @@ else
     echo "  FAIL  the two hooks disagree"; failures=$((failures + 1))
 fi
 
+# Nothing fires when the model starts thinking, so green has to be reclaimed at
+# the last moment before work resumes. Without these the tab stays red from the
+# permission prompt you just answered, all through the answer.
+if CLAUDE_CONFIG_DIR="$(mktemp -d)" python3 -c "
+import json, os, pathlib, subprocess, sys
+target = pathlib.Path(os.environ['CLAUDE_CONFIG_DIR'])
+run = lambda *a: subprocess.run([sys.executable, '$REPO/install.py', *a],
+                                stdout=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                                check=True)
+run('--tab-state')
+hooks = json.loads((target / 'settings.json').read_text())['hooks']
+for event in ('PostToolBatch', 'SubagentStop'):
+    args = hooks[event][0]['hooks'][0]['args']
+    assert args[0].endswith('tab-state.py') and args[1] == 'working', (event, args)
+# And they go when the marker does.
+run('--replace')
+hooks = json.loads((target / 'settings.json').read_text()).get('hooks', {})
+assert 'PostToolBatch' not in hooks and 'SubagentStop' not in hooks, hooks
+"; then
+    echo "  ok    work resumes on green, and unwires"
+else
+    echo "  FAIL  return-to-work events"; failures=$((failures + 1))
+fi
+
 echo
 echo "Compaction is busy time"
 # Nothing else moves the marker while a compaction runs: no turn brackets it,

@@ -10,6 +10,8 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 rm -f "$CONFIG_DIR/statusline-context.py"
+rm -f "$CONFIG_DIR/hooks/tab-state.py"
+rmdir "$CONFIG_DIR/hooks" 2>/dev/null || true
 rm -f "$CONFIG_DIR/sounds/play.sh" \
       "$CONFIG_DIR/sounds/needs-you.wav" \
       "$CONFIG_DIR/sounds/done.wav"
@@ -32,11 +34,12 @@ shutil.copy2(settings, settings.with_name(f"settings.json.bak-{stamp}"))
 
 data.pop("statusLine", None)
 hooks = data.get("hooks", {})
-for event in ("Notification", "Stop"):
+for event in ("Notification", "Stop", "UserPromptSubmit", "SessionEnd"):
     entries = [
         group for group in hooks.get(event, [])
         if not any(
             "play.sh" in handler.get("command", "")
+            or "tab-state.py" in handler.get("command", "")
             for handler in group.get("hooks", [])
         )
     ]

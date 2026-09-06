@@ -10,13 +10,15 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 WITH_STATUSLINE=1
 WITH_SOUNDS=1
+WITH_TAB_STATE=1
 
 for arg in "$@"; do
     case "$arg" in
         --no-statusline) WITH_STATUSLINE=0 ;;
         --no-sounds)     WITH_SOUNDS=0 ;;
+        --no-tab-state)  WITH_TAB_STATE=0 ;;
         -h|--help)
-            echo "usage: install.sh [--no-statusline] [--no-sounds]"
+            echo "usage: install.sh [--no-statusline] [--no-sounds] [--no-tab-state]"
             echo
             echo "Installs into \$CLAUDE_CONFIG_DIR, or ~/.claude when unset."
             exit 0
@@ -43,6 +45,12 @@ if [ "$WITH_STATUSLINE" -eq 1 ]; then
     echo "  status line   $CONFIG_DIR/statusline-context.py"
 fi
 
+if [ "$WITH_TAB_STATE" -eq 1 ]; then
+    mkdir -p "$CONFIG_DIR/hooks"
+    cp "$REPO/hooks/tab-state.py" "$CONFIG_DIR/hooks/tab-state.py"
+    echo "  tab state     $CONFIG_DIR/hooks/tab-state.py"
+fi
+
 if [ "$WITH_SOUNDS" -eq 1 ]; then
     mkdir -p "$CONFIG_DIR/sounds"
     cp "$REPO/sounds/play.sh" "$CONFIG_DIR/sounds/play.sh"
@@ -55,6 +63,7 @@ fi
 CONFIG_DIR="$CONFIG_DIR" \
 WITH_STATUSLINE="$WITH_STATUSLINE" \
 WITH_SOUNDS="$WITH_SOUNDS" \
+WITH_TAB_STATE="$WITH_TAB_STATE" \
 python3 <<'PY'
 import datetime
 import json
@@ -89,18 +98,51 @@ if os.environ["WITH_STATUSLINE"] == "1":
             f'python3 "{config_dir}/statusline-context.py"'
         )
 
-if os.environ["WITH_SOUNDS"] == "1":
-    player = "bash ~/.claude/sounds/play.sh"
-    if os.environ.get("CLAUDE_CONFIG_DIR"):
-        player = f'bash "{config_dir}/sounds/play.sh"'
+prefix = "~/.claude"
+if os.environ.get("CLAUDE_CONFIG_DIR"):
+    prefix = f'"{config_dir}"'
+
+sounds = os.environ["WITH_SOUNDS"] == "1"
+tabs = os.environ["WITH_TAB_STATE"] == "1"
+
+
+def handler(command):
+    return {"type": "command", "command": command}
+
+
+def sound(name):
+    return handler(f"bash {prefix}/sounds/play.sh {name}")
+
+
+def tab(state):
+    return handler(f"python3 {prefix}/hooks/tab-state.py {state}")
+
+
+if sounds or tabs:
     hooks = data.setdefault("hooks", {})
+
+    # Claude is blocked on you: a permission prompt, a question, an idle wait.
+    attention = []
+    if sounds:
+        attention.append(sound("needs-you"))
+    if tabs:
+        attention.append(tab("waiting"))
     hooks["Notification"] = [{
         "matcher": "permission_prompt|idle_prompt|agent_needs_input",
-        "hooks": [{"type": "command", "command": f"{player} needs-you"}],
+        "hooks": attention,
     }]
-    hooks["Stop"] = [{
-        "hooks": [{"type": "command", "command": f"{player} done"}],
-    }]
+
+    # Claude finished the turn: also your move, so the same marker.
+    finished = []
+    if sounds:
+        finished.append(sound("done"))
+    if tabs:
+        finished.append(tab("waiting"))
+    hooks["Stop"] = [{"hooks": finished}]
+
+    if tabs:
+        hooks["UserPromptSubmit"] = [{"hooks": [tab("working")]}]
+        hooks["SessionEnd"] = [{"hooks": [tab("stopped")]}]
 
 settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 print(f"  settings      {settings}")

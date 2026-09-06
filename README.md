@@ -1,8 +1,9 @@
 # vscode-comfy-claude-config
 
 A small, comfortable [Claude Code](https://code.claude.com) setup: a status line
-that always shows how much context you are carrying, and two sounds that tell
-you when Claude wants you and when it has stopped working.
+that always shows how much context you are carrying, two sounds that tell you
+when Claude wants you and when it has stopped working, and a coloured marker on
+the VS Code terminal tab so you can see which session needs you.
 
 Everything lives in your Claude Code config directory. Nothing here is tied to a
 machine, an account, or a project.
@@ -137,16 +138,56 @@ rather tune them than replace them.
 the sounds, delete the `Notification` and `Stop` entries from the `hooks` block
 of your `settings.json`.
 
+## The terminal tab indicator (VS Code)
+
+A coloured marker in front of the terminal name, so a wall of identical `claude`
+tabs tells you which one wants you:
+
+```
+🟢 my-project      Claude is working
+🟠 my-project      your turn: it finished, or it is asking for something
+🔴 my-project      the session ended
+```
+
+**This needs one VS Code setting**, because by default a tab is titled after the
+process name. Add to your VS Code `settings.json`:
+
+```json
+{ "terminal.integrated.tabs.title": "${sequence}" }
+```
+
+Two things this is *not*, both worth knowing before you go looking for them:
+
+- **It is not the tab's icon colour.** VS Code exposes no escape sequence for
+  the tab icon or colour; only the extension that created a terminal can set
+  those, at creation time, via `window.createTerminal({ iconPath, color })`.
+  The [request to have Claude Code do it](https://github.com/anthropics/claude-code/issues/56925)
+  was closed as not planned for that reason. The title is the one channel a CLI
+  can drive, hence a coloured emoji rather than a dot.
+- **It does not fight Claude Code's own tab name.** That name comes from the
+  process title, which VS Code reads as `${process}` — a separate channel from
+  `${sequence}`. Neither overwrites the other.
+
+The hook does not write to the terminal itself: hooks run without a controlling
+terminal, so they hand the escape sequence to Claude Code through the
+documented `terminalSequence` output field, and it does the writing.
+
+Change the markers at the top of `hooks/tab-state.py`. Skip the whole feature
+with `./install.sh --no-tab-state`.
+
 ## What gets written
 
 ```
 $CLAUDE_CONFIG_DIR/
 ├── statusline-context.py
+├── hooks/
+│   └── tab-state.py
 ├── sounds/
 │   ├── play.sh
 │   ├── needs-you.wav
 │   └── done.wav
-└── settings.json          merged: statusLine + hooks.Notification + hooks.Stop
+└── settings.json          merged: statusLine, and the hooks for
+                           Notification, Stop, UserPromptSubmit, SessionEnd
 ```
 
 ## References

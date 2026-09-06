@@ -9,8 +9,16 @@ it runs with no controlling terminal and can present no dialog -- and, more
 importantly, the session that is about to be compacted still holds the whole
 context in mind. It is a far better reviewer than a subagent re-reading a
 transcript from disk. So this hook only does what a hook can do: it blocks the
-compaction once and hands the job back to the session, which can then propose
-each item and let you accept, amend or discard it in conversation.
+compaction and hands the job back to the session, which proposes each item and
+lets you say yes or no in conversation.
+
+What releases the block is a token file, and the token is written by the
+SESSION once the review is over -- never by this hook. An earlier version wrote
+it here, at the moment of blocking, so that the next attempt would go through.
+That made the signal mean "you already tried once" instead of "the review
+happened", and a second /compact sailed past with nothing reviewed. The token
+is consumed as it is honoured, so the next compaction in the same session is
+armed again.
 
 Manual and automatic compaction are treated differently on purpose. Blocking
 `/compact` is harmless: you typed it, you get a review, you type it again.
@@ -31,9 +39,14 @@ CONFIG_DIR = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR", pathlib.Path.home(
 STATE_DIR = CONFIG_DIR / "state"
 STALE_AFTER_SECONDS = 7 * 24 * 3600
 
+# `.guard` is the token this hook used to write itself, kept here only so a
+# machine upgrading from that version does not keep a file nothing consumes.
+TOKEN_GLOBS = ("friction-*.done", "friction-*.guard")
+
 REVIEW = """\
-Compaction was held back so this session's friction can be captured before the \
-detail is summarised away. Do this now, then tell the user to run /compact again.
+Compaction is held back until this session's friction has been reviewed with \
+the user, so the detail is turned into something durable before it is \
+summarised away.
 
 Look back over THIS session and list what actually caused friction: a wrong \
 assumption you had to undo, a command that failed for a non-obvious reason, a \
@@ -41,36 +54,50 @@ convention you got wrong, a tool that behaved differently than expected, a \
 measurement that contradicted what everyone believed. Ignore anything already \
 written down, and anything that is plain conversation rather than a lesson.
 
-Then, ONE AT A TIME, propose each candidate to the user. For each one give:
-  - what happened, in a sentence, with the concrete evidence from this session
-  - what to do and what not to do next time
-  - where it belongs: this project's CLAUDE.md, or a specific skill -- and say \
-which, with a reason. Never the user-level ~/.claude/CLAUDE.md: a lesson too \
-general for one repo becomes a skill, it does not move up a level.
+Turn each one into a CONCRETE AMENDMENT -- not a remark. Name the file and say \
+what text you would add or change, so the user is answering yes or no to an \
+edit they can picture:
+  - this project's CLAUDE.md
+  - a skill (name it; say whether it exists or you would create it)
+  - the documentation -- README, usage notes
+  - a comment in the code, where the trap is invisible at the point it bites
+Never the user-level ~/.claude/CLAUDE.md: a lesson too general for one repo \
+becomes a skill, it does not move up a level.
 
-Wait for the user on each item. They may accept it, rewrite it, or discard it. \
-Write only what they accept, and write it where they agreed. Do not batch the \
-list into one question, and do not write anything before they have answered.
+Propose them ONE AT A TIME. For each: what happened, with the concrete \
+evidence from this session; the amendment you propose, naming the file; what \
+future friction it prevents. Then wait. The user answers yes or no. Write only \
+what they accept, where they agreed, and do not write anything before they \
+have answered. Do not batch the list into one question.
 
-If nothing in this session is worth recording, say so plainly and tell them to \
-run /compact again -- an empty review is a legitimate outcome, and inventing a \
-lesson to look useful is worse than none."""
+If nothing in this session is worth recording, say so plainly -- an empty \
+review is a legitimate outcome, and inventing a lesson to look useful is worse \
+than none.
+
+WHEN THE REVIEW IS OVER, and only then, release the block by creating the \
+token file, then tell the user that /compact will now go through:
+
+    {release}
+
+The token is consumed as it is honoured, so the next /compact in this session \
+is reviewed too."""
 
 AFTER_AUTO = """\
 Context was just auto-compacted. Before continuing, review what caused friction \
-earlier in this session and propose each item to the user one at a time, for \
-them to accept, amend or discard, then write only the accepted ones to the \
-CLAUDE.md or skill you agreed on."""
+earlier in this session: propose each item to the user one at a time as a \
+concrete amendment to this project's CLAUDE.md, a skill, the documentation or a \
+code comment, naming the file, and write only the ones they accept."""
 
 
 def sweep_stale(now):
-    """Drop guards left behind by sessions that ended mid-review."""
-    try:
-        for guard in STATE_DIR.glob("friction-*.guard"):
-            if now - guard.stat().st_mtime > STALE_AFTER_SECONDS:
-                guard.unlink()
-    except OSError:
-        pass
+    """Drop tokens left behind by sessions that ended mid-review."""
+    for pattern in TOKEN_GLOBS:
+        try:
+            for token in STATE_DIR.glob(pattern):
+                if now - token.stat().st_mtime > STALE_AFTER_SECONDS:
+                    token.unlink()
+        except OSError:
+            pass
 
 
 def main():
@@ -93,33 +120,33 @@ def main():
         )
         sys.exit(0)
 
+    release = STATE_DIR / f"friction-{session}.done"
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         sweep_stale(time.time())
-        guard = STATE_DIR / f"friction-{session}.guard"
-        if guard.exists():
-            # The review already happened for this compaction: let it through
-            # and re-arm, so a later /compact in the same session is reviewed too.
-            guard.unlink()
+        if release.exists():
+            # The session recorded a finished review: honour it, and consume the
+            # token so a later /compact in the same session is reviewed too.
+            release.unlink()
             sys.exit(0)
-        guard.write_text(str(time.time()))
     except OSError:
-        # If the guard cannot be managed, never block: a broken state directory
-        # must not make /compact unusable.
+        # If the state directory cannot be managed, never block: a broken state
+        # directory must not make /compact unusable.
         sys.exit(0)
 
     # stderr is both the channel back to Claude and what the user sees on
     # screen. Printing the whole brief there hands the user a wall of text
     # addressed to someone else, which reads as a demand on them. So the brief
     # goes to a file and stderr carries one line naming it.
+    brief_text = REVIEW.format(release=f"touch '{release}'")
     try:
         brief = STATE_DIR / "friction-review.md"
-        brief.write_text(REVIEW, encoding="utf-8")
-        print(f"Compaction held back: review this session's friction first. "
-              f"Read {brief} and follow it, then tell the user to run /compact again.",
+        brief.write_text(brief_text, encoding="utf-8")
+        print(f"Compaction held back: review this session's friction with the user first. "
+              f"Read {brief} and follow it.",
               file=sys.stderr)
     except OSError:
-        print(REVIEW, file=sys.stderr)  # no file? the brief still has to arrive
+        print(brief_text, file=sys.stderr)  # no file? the brief still has to arrive
     sys.exit(2)
 
 

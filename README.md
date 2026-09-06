@@ -215,15 +215,18 @@ and it does the writing.
 Compaction is the moment a session's hard-won detail is about to be summarised
 away, which makes it exactly the right moment to ask what should outlive it.
 
-With this installed, `/compact` first stops and hands the session a job: look
-back over what actually caused friction — a wrong assumption you had to undo, a
+With this installed, `/compact` stops and hands the session a job: look back
+over what actually caused friction — a wrong assumption you had to undo, a
 command that failed for a non-obvious reason, a convention you got wrong — and
-propose each item **one at a time**, saying where it belongs (this project's
-`CLAUDE.md`, your user-level one, or a specific skill). You accept, rewrite, or
-discard each one. Only what you accept is written. Then you run `/compact` again
-and it goes through.
+turn each one into a **concrete amendment**, naming the file it would change:
+this project's `CLAUDE.md`, a skill, the documentation, or a comment at the spot
+where the trap bites. They come **one at a time**, and you answer yes or no.
+Only what you accept is written.
 
-Two design points that are not arbitrary:
+When the review is over, the session releases the block and `/compact` goes
+through. The next one in the same session is armed again.
+
+Three design points that are not arbitrary:
 
 - **The review is not done inside the hook.** A hook cannot talk to you — it runs
   with no controlling terminal and can show no dialog — and, more to the point,
@@ -234,11 +237,19 @@ Two design points that are not arbitrary:
   full; refusing it could leave the session with nowhere to go. On `auto` the
   hook asks for the review to happen *after* compaction instead, and lets it
   proceed.
+- **The session releases the block, not the hook.** What lets `/compact` through
+  is a token file in `$CLAUDE_CONFIG_DIR/state/`, written by the session once the
+  review is over. An earlier version had the hook write it as it blocked, so the
+  next attempt would pass — which made the signal mean *you already tried once*
+  rather than *the review happened*, and a second `/compact` sailed past with
+  nothing reviewed. The token is consumed as it is honoured, so the next
+  compaction is armed again, and it is swept after seven days if a session ends
+  mid-review.
 
-A guard file in `$CLAUDE_CONFIG_DIR/state/` keeps this to once per compaction,
-re-arms for the next one, and is swept after seven days if a session ends
-mid-review. Every failure path exits 0: an unreadable payload or an unwritable
-state directory must never make `/compact` unusable.
+Every failure path exits 0: an unreadable payload or an unwritable state
+directory must never make `/compact` unusable. If you want out of a review
+without doing it, create the token yourself — the brief in
+`state/friction-review.md` names the exact command.
 
 Skip it with `./install.sh --no-friction`.
 
@@ -250,7 +261,7 @@ $CLAUDE_CONFIG_DIR/
 ├── hooks/
 │   ├── tab-state.py
 │   └── precompact-friction.py
-├── state/                 guard files for the friction reviewer
+├── state/                 release tokens for the friction reviewer
 ├── sounds/
 │   ├── play.py
 │   ├── needs-you.wav

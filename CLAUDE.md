@@ -89,6 +89,18 @@ concerné, ou une **skill** nommée. Jamais `~/.claude/CLAUDE.md` — une leçon
 dépôt devient une skill, elle ne remonte pas d'un cran. C'est une consigne de Loïc, tranchée pendant
 la revue : un fichier utilisateur s'applique à tous les projets sans qu'on l'ait choisi pour chacun.
 
+### Un jeton de déblocage doit être posé par CELUI QUI FAIT le travail
+
+La première version de `precompact-friction.py` écrivait son jeton **elle-même, au moment de
+bloquer**, pour que la tentative suivante passe. Le signal voulait donc dire « tu as déjà essayé une
+fois », pas « la revue a eu lieu » : un deuxième `/compact` passait sans que rien n'ait été revu, et
+c'est exactement ce qui a été reproché.
+
+*À faire* : faire poser le jeton par la session, à la fin de la revue, et le consommer en l'honorant
+— ce qui réarme le suivant. Le brief nomme la commande exacte, jeton et `session_id` compris.
+*À ne pas faire* : confondre « la condition a été rencontrée » avec « la condition est remplie ».
+Un compteur de tentatives n'est pas une preuve de travail.
+
 ### Les hooks s'enregistrent en forme exec, jamais en chaîne de shell
 
 `{"type": "command", "command": <interpréteur>, "args": [<script>, <arg>]}`.
@@ -146,7 +158,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 28 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 31 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -162,15 +174,15 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
   distingue le repos de l'attente **par la forme** autant que par la teinte.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
-- **La revue des frictions n'a tourné qu'une fois**, et son premier passage réel a révélé le défaut
-  du `stderr` ci-dessus. La branche `auto` — celle qui ne bloque pas et passe par
-  `additionalContext` — **n'a jamais été observée**, et `additionalContext` sur `PreCompact` reste le
-  seul champ dont je n'ai pas prouvé qu'il est honoré.
+- **La branche `auto` de la revue des frictions n'a jamais été observée** — celle qui ne bloque pas
+  et passe par `additionalContext`. C'est le seul champ de `PreCompact` dont je n'ai pas prouvé
+  qu'il est honoré. Ses deux passages réels, tous deux sur `manual`, ont chacun révélé un défaut :
+  le `stderr` déversé à l'écran, puis le jeton qui ne prouvait rien.
 
 ## Tester
 
 ```bash
-./test.sh                      # 28 contrôles, sans rien installer
+./test.sh                      # 31 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

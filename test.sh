@@ -67,11 +67,24 @@ friction() {
         failures=$((failures + 1))
     fi
 }
-friction "manual blocks the first time"   '{"session_id":"t","trigger":"manual"}' 2
-friction "second call lets it through"    '{"session_id":"t","trigger":"manual"}' 0
+friction "manual blocks without a review" '{"session_id":"t","trigger":"manual"}' 2
+# The whole point: trying again proves nothing. Only a recorded review releases.
+friction "trying again still blocks"      '{"session_id":"t","trigger":"manual"}' 2
+touch "$STATE/state/friction-t.done"
+friction "a recorded review is honoured"  '{"session_id":"t","trigger":"manual"}' 0
+if [ -e "$STATE/state/friction-t.done" ]; then
+    printf '  FAIL  %-34s token survived\n' "the token is consumed"; failures=$((failures + 1))
+else
+    printf '  ok    %-34s consumed\n' "the token is consumed"
+fi
 friction "and re-arms for the next one"   '{"session_id":"t","trigger":"manual"}' 2
 friction "auto never blocks"              '{"session_id":"u","trigger":"auto"}'   0
 friction "unreadable payload never blocks" 'not json'                             0
+if grep -q "friction-t.done" "$STATE/state/friction-review.md"; then
+    printf '  ok    %-34s named in brief\n' "the release command"
+else
+    printf '  FAIL  %-34s missing from brief\n' "the release command"; failures=$((failures + 1))
+fi
 printf '%s' '{"session_id":"v","trigger":"manual"}' | CLAUDE_CONFIG_DIR=/proc/impossible python3 "$REPO/hooks/precompact-friction.py" >/dev/null 2>&1
 if [ $? -eq 0 ]; then
     printf '  ok    %-34s exit 0\n' "unwritable state never blocks"

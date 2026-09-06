@@ -313,6 +313,20 @@ now owns its tab. A plain zsh or bash tab stops reading `zsh` and starts reading
 username on screen. On a list of mostly-Claude tabs the marker is worth it; on a
 mixed list it often is not. `./install-vscode.sh --revert` undoes the setting.
 
+You can also just shorten what your shell announces, which keeps the marker and
+loses the long path. On oh-my-zsh, add this **after** `source $ZSH/oh-my-zsh.sh`
+— `lib/termsupport.zsh` assigns it plainly, so an earlier line is overwritten:
+
+```zsh
+ZSH_THEME_TERM_TITLE_IDLE="%1~"   # the current folder, nothing else
+```
+
+Bash equivalent, for a `PROMPT_COMMAND` that sets the title:
+
+```bash
+PROMPT_COMMAND='printf "\033]0;%s\007" "${PWD##*/}"'
+```
+
 ### Changing the markers
 
 Set `CC_TAB_WORKING`, `CC_TAB_BLOCKED` or `CC_TAB_IDLE` in the `env` block of

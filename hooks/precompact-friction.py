@@ -44,8 +44,9 @@ written down, and anything that is plain conversation rather than a lesson.
 Then, ONE AT A TIME, propose each candidate to the user. For each one give:
   - what happened, in a sentence, with the concrete evidence from this session
   - what to do and what not to do next time
-  - where it belongs: this project's CLAUDE.md, the user-level CLAUDE.md, or a \
-specific skill -- and say which, with a reason
+  - where it belongs: this project's CLAUDE.md, or a specific skill -- and say \
+which, with a reason. Never the user-level ~/.claude/CLAUDE.md: a lesson too \
+general for one repo becomes a skill, it does not move up a level.
 
 Wait for the user on each item. They may accept it, rewrite it, or discard it. \
 Write only what they accept, and write it where they agreed. Do not batch the \

@@ -150,9 +150,9 @@ A coloured marker in front of the terminal name, so a wall of identical `claude`
 tabs tells you which one wants you:
 
 ```
-🟡 my-project      your turn, or a session just opened
+🔴 my-project      your turn, or a session just opened
 🟢 my-project      Claude is working
-🔴 my-project      the session ended
+🟨 my-project      the session ended
 ```
 
 Install it with `./install.sh --tab-state`, then `./install-vscode.sh`, then

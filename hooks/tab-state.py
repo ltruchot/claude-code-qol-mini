@@ -23,8 +23,8 @@ import sys
 # will render. An empty value drops the marker for that state.
 MARKERS = {
     "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green
-    "waiting": os.environ.get("CC_TAB_WAITING", "\U0001F7E1"),  # yellow
-    "stopped": os.environ.get("CC_TAB_STOPPED", "\U0001F534"),  # red
+    "waiting": os.environ.get("CC_TAB_WAITING", "\U0001F534"),  # red
+    "stopped": os.environ.get("CC_TAB_STOPPED", "\U0001F7E8"),  # yellow square
 }
 
 

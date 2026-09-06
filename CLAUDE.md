@@ -14,7 +14,7 @@ contributeurs, les commits devront passer à l'anglais.
 |---|---|---|
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
-| Marqueur d'onglet | `hooks/tab-state.py` | 🟡 à toi · 🟢 travaille · 🔴 session finie |
+| Marqueur d'onglet | `hooks/tab-state.py` | 🔴 à toi · 🟢 travaille · 🟨 session finie |
 | Revue des frictions | `hooks/precompact-friction.py` | `/compact` s'arrête, propose les leçons une par une, puis compacte |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
@@ -84,6 +84,11 @@ demande faite à lui.
 *À faire* : écrire le brief dans un fichier sous `state/` et ne mettre sur `stderr` qu'**une ligne**
 qui le nomme. *À ne pas faire* : oublier qu'un canal de retour machine est aussi une sortie humaine.
 
+Et le brief ne doit proposer que **deux** destinations pour une leçon : le `CLAUDE.md` du dépôt
+concerné, ou une **skill** nommée. Jamais `~/.claude/CLAUDE.md` — une leçon trop générale pour un
+dépôt devient une skill, elle ne remonte pas d'un cran. C'est une consigne de Loïc, tranchée pendant
+la revue : un fichier utilisateur s'applique à tous les projets sans qu'on l'ait choisi pour chacun.
+
 ### Les hooks s'enregistrent en forme exec, jamais en chaîne de shell
 
 `{"type": "command", "command": <interpréteur>, "args": [<script>, <arg>]}`.
@@ -152,15 +157,15 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 - **Le format du marqueur reste à choisir.** Réglable sans toucher au code par `CC_TAB_WORKING`,
   `CC_TAB_WAITING`, `CC_TAB_STOPPED` dans le bloc `env` — emoji, `[..]`, `(working)`. Les emoji
   rendent correctement, c'est constaté ; reste à savoir ce qui se repère le mieux dans une liste.
+  Les couleurs, elles, sont tranchées : **rouge pour « à toi »**, la seule qui doive accrocher l'œil,
+  jaune carré pour « fini ». L'orange d'origine se confondait avec le rouge à distance, et le carré
+  distingue le repos de l'attente **par la forme** autant que par la teinte.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
 - **La revue des frictions n'a tourné qu'une fois**, et son premier passage réel a révélé le défaut
   du `stderr` ci-dessus. La branche `auto` — celle qui ne bloque pas et passe par
   `additionalContext` — **n'a jamais été observée**, et `additionalContext` sur `PreCompact` reste le
   seul champ dont je n'ai pas prouvé qu'il est honoré.
-- **Quatre leçons de la session en cours restent à trancher** avec Loïc, la première ayant été
-  proposée : elles sont déjà consignées ci-dessus, il reste à décider si elles vivent ici ou dans un
-  `~/.claude/CLAUDE.md` (qui n'existe pas encore).
 
 ## Tester
 

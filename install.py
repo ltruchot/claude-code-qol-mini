@@ -22,6 +22,13 @@ Usage: install.py [options]
   --warn N             gauge turns orange at N tokens (default 100000)
   --alert N            gauge turns red at N tokens (default 200000)
   --defaults           install the defaults without asking
+  --replace            overwrite delivered files that differ (see below)
+
+Nothing already on disk is overwritten. Files this installer owns are created
+when missing, left alone when identical, and reported when they differ -- with
+nothing written at all, so a refused run leaves no half-installed state. Remove
+them, or pass --replace. The sounds are never rewritten: the README tells you to
+drop your own WAV over them.
 """
 import datetime
 import json
@@ -138,19 +145,24 @@ def ask_number(question, default):
         print(f"    a positive number of tokens, or Enter for {default}")
 
 
-def interview():
-    """Ask what to install. Only reached with no options and a real terminal."""
-    chosen = dict(DEFAULTS)
+def interview(current=None):
+    """Ask what to install. Only reached with no options and a real terminal.
+
+    The brackets hold what is installed right now, not what ships by default,
+    so pressing Enter through the whole thing reproduces the current setup
+    instead of resetting it.
+    """
+    chosen = dict(current or DEFAULTS)
     print("What should be installed? Enter accepts the value in brackets.\n")
 
     print("  The gauge counts what is re-sent to the model on every request, and")
     print("  turns orange then red at fixed token counts -- not at a share of the")
     print("  window, which would stay near-empty on a 1M model.")
-    chosen["statusline"] = ask("Context gauge in the status line?", True)
+    chosen["statusline"] = ask("Context gauge in the status line?", chosen["statusline"])
     if chosen["statusline"]:
-        chosen["warn"] = ask_number("Orange at how many tokens?", DEFAULTS["warn"])
+        chosen["warn"] = ask_number("Orange at how many tokens?", chosen["warn"])
         while True:
-            chosen["alert"] = ask_number("Red at how many tokens?", DEFAULTS["alert"])
+            chosen["alert"] = ask_number("Red at how many tokens?", chosen["alert"])
             if chosen["alert"] > chosen["warn"]:
                 break
             print(f"    has to be above the orange threshold ({chosen['warn']})")
@@ -158,12 +170,13 @@ def interview():
     print()
     print("  Two rising notes when Claude is blocked on you, one lower note when")
     print("  a turn ends. Silent while it waits on a subagent of its own.")
-    chosen["sounds"] = ask("Notification sounds?", True)
+    chosen["sounds"] = ask("Notification sounds?", chosen["sounds"])
 
     print()
     print("  /compact stops until the session's friction has been reviewed: each")
     print("  lesson is proposed as one concrete edit, and you answer yes or no.")
-    chosen["kaizen"] = ask("Friction review before /compact, via /kaizen?", True)
+    chosen["kaizen"] = ask("Friction review before /compact, via /kaizen?",
+                           chosen["kaizen"])
 
     print()
     print("  The tab marker puts a colored dot in front of the terminal name, so")
@@ -171,84 +184,71 @@ def interview():
     print("  something: every terminal is retitled, a zsh tab included, and it")
     print("  needs an editor setting plus a new session. install-vscode.py")
     print("  --revert undoes it.")
-    chosen["tabs"] = ask("Terminal tab marker?", False)
+    chosen["tabs"] = ask("Terminal tab marker?", chosen["tabs"])
     print()
     return chosen
 
 
-def main():
-    arguments = sys.argv[1:]
-    # Asking is for a person at a terminal. An option, a pipe or a CI runner
-    # means someone already decided, so nothing is asked and nothing blocks.
-    if not arguments and sys.stdin.isatty():
-        chosen = interview()
-    else:
-        chosen = parse(arguments)
+def installed_state(target):
+    """What the current settings.json says is installed, for the interview.
 
-    statusline = chosen["statusline"]
-    sounds = chosen["sounds"]
-    tabs = chosen["tabs"]
-    kaizen = chosen["kaizen"]
+    Reading it back means Enter-through in the interview reproduces the setup
+    already in place instead of resetting it to the shipped defaults.
+    """
+    state = dict(DEFAULTS)
+    try:
+        data = json.loads((target / "settings.json").read_text(encoding="utf-8") or "{}")
+    except (OSError, ValueError):
+        return state
+    command = (data.get("statusLine") or {}).get("command", "")
+    state["statusline"] = "statusline-context.py" in command
+    for name in ("warn", "alert"):
+        marker = f"--{name} "
+        if marker in command:
+            value = command.split(marker, 1)[1].split()[0]
+            if value.isdigit() and int(value) > 0:
+                state[name] = int(value)
+    ours = json.dumps(data.get("hooks", {}))
+    state["sounds"] = "play.py" in ours
+    state["tabs"] = "tab-state.py" in ours
+    state["kaizen"] = "precompact-kaizen.py" in ours
+    return state
 
-    target = config_dir()
-    # The interpreter running this installer is by definition present and
-    # correct; resolving a name like "python3" would guess wrong on Windows.
-    python = sys.executable or "python3"
 
-    print(f"Installing into {target}")
-    target.mkdir(parents=True, exist_ok=True)
-    for relative in SUPERSEDED:
-        stale = target / relative
-        if stale.exists():
-            stale.unlink()
-            print(f"  removed       {stale}")
+def payloads(chosen, target, python):
+    """The files this install owns, as {relative path: exact bytes}.
 
-    if statusline:
-        shutil.copy2(REPO / "statusline" / "context.py", target / "statusline-context.py")
-        print(f"  status line   {target / 'statusline-context.py'}")
-
-    if tabs or kaizen:
-        (target / "hooks").mkdir(exist_ok=True)
-    if tabs:
-        shutil.copy2(REPO / "hooks" / "tab-state.py", target / "hooks" / "tab-state.py")
-        print(f"  tab marker    {target / 'hooks' / 'tab-state.py'}")
-    if kaizen:
+    The sounds are deliberately absent. The README tells you to drop your own
+    WAV over them, so they are created when missing and never rewritten -- an
+    installer that regenerated them would silently undo that every run.
+    """
+    files = {}
+    if chosen["statusline"]:
+        files["statusline-context.py"] = (REPO / "statusline" / "context.py").read_bytes()
+    if chosen["tabs"]:
+        files["hooks/tab-state.py"] = (REPO / "hooks" / "tab-state.py").read_bytes()
+    if chosen["sounds"]:
+        files["sounds/play.py"] = (REPO / "sounds" / "play.py").read_bytes()
+    if chosen["kaizen"]:
         script = target / "hooks" / "precompact-kaizen.py"
-        shutil.copy2(REPO / "hooks" / "precompact-kaizen.py", script)
-        print(f"  kaizen hook   {script}")
+        files["hooks/precompact-kaizen.py"] = (REPO / "hooks" / "precompact-kaizen.py").read_bytes()
         # The skill has to name the release command exactly, and only the
         # installer knows the interpreter and the absolute path it will have.
-        skill = target / "skills" / "kaizen" / "SKILL.md"
-        skill.parent.mkdir(parents=True, exist_ok=True)
         body = (REPO / "skills" / "kaizen" / "SKILL.md").read_text(encoding="utf-8")
-        skill.write_text(
-            body.replace("{{RELEASE_COMMAND}}", f'"{python}" "{script}" --release'),
-            encoding="utf-8")
-        print(f"  kaizen skill  {skill}")
+        files["skills/kaizen/SKILL.md"] = body.replace(
+            "{{RELEASE_COMMAND}}", f'"{python}" "{script}" --release').encode("utf-8")
+    return files
 
-    if sounds:
-        (target / "sounds").mkdir(exist_ok=True)
-        shutil.copy2(REPO / "sounds" / "play.py", target / "sounds" / "play.py")
-        subprocess.run([python, str(REPO / "sounds" / "generate.py"),
-                        str(target / "sounds")], check=True)
 
-    settings = target / "settings.json"
-    data = {}
-    if settings.exists():
-        try:
-            data = json.loads(settings.read_text(encoding="utf-8") or "{}")
-        except ValueError:
-            sys.exit(f"error: {settings} is not valid JSON. Fix or move it, then re-run.")
-        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        backup = settings.with_name(f"settings.json.bak-{stamp}")
-        shutil.copy2(settings, backup)
-        print(f"  backup        {backup}")
+def settings_for(chosen, target, python, data):
+    """The settings.json this install wants, merged onto what is already there."""
+    data = json.loads(json.dumps(data))  # a copy: the original is the comparison
 
     # Claude Code emits its own OSC 0 title -- an animated spinner plus the
     # conversation name -- and redraws it continuously, so it wins any race
     # against the marker. Silencing it is not optional for this feature.
     env = data.get("env", {})
-    if tabs:
+    if chosen["tabs"]:
         env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
     else:
         env.pop("CLAUDE_CODE_DISABLE_TERMINAL_TITLE", None)
@@ -257,7 +257,7 @@ def main():
     else:
         data.pop("env", None)
 
-    if statusline:
+    if chosen["statusline"]:
         # Thresholds go on the command line rather than into `env`: settings.json
         # is re-read hot, its `env` block only at startup, so a change here takes
         # effect without a new session. Written only when they differ from the
@@ -300,6 +300,7 @@ def main():
             group["matcher"] = matcher
         hooks.setdefault(event, []).append(group)
 
+    sounds, tabs = chosen["sounds"], chosen["tabs"]
     # Red and the rising notes are spent on one thing: Claude cannot go on
     # without you. `idle_prompt` fires a minute after a turn ends and asks for
     # nothing, so it gets the resting marker and no sound.
@@ -317,27 +318,107 @@ def main():
         add("SessionStart", [hook("hooks/tab-state.py", "idle")])
         add("UserPromptSubmit", [hook("hooks/tab-state.py", "working")])
         add("SessionEnd", [hook("hooks/tab-state.py", "stopped")])
-    if kaizen:
+    if chosen["kaizen"]:
         add("PreCompact", [hook("hooks/precompact-kaizen.py")])
 
     if hooks:
         data["hooks"] = hooks
     else:
         data.pop("hooks", None)
+    return data
 
-    settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-                        encoding="utf-8")
-    print(f"  settings      {settings}")
+
+def main():
+    arguments = sys.argv[1:]
+    replace = "--replace" in arguments
+    decisive = [a for a in arguments if a != "--replace"]
+    target = config_dir()
+    # Asking is for a person at a terminal. An option, a pipe or a CI runner
+    # means someone already decided, so nothing is asked and nothing blocks.
+    if not decisive and sys.stdin.isatty():
+        chosen = interview(installed_state(target))
+    else:
+        chosen = parse(decisive)
+
+    python = sys.executable or "python3"  # resolving "python3" guesses wrong on Windows
+    settings = target / "settings.json"
+    try:
+        current = json.loads(settings.read_text(encoding="utf-8") or "{}")
+    except FileNotFoundError:
+        current = {}
+    except ValueError:
+        sys.exit(f"error: {settings} is not valid JSON. Fix or move it, then re-run.")
+
+    wanted = payloads(chosen, target, python)
+    merged = settings_for(chosen, target, python, current)
+
+    # What actually has to happen. Nothing is written before this is settled:
+    # a run that refuses must not leave a half-installed state behind.
+    create = {r: b for r, b in wanted.items() if not (target / r).exists()}
+    clash = [r for r in wanted
+             if r not in create and (target / r).read_bytes() != wanted[r]]
+    sounds = [n for n in ("needs-you.wav", "done.wav")
+              if chosen["sounds"] and not (target / "sounds" / n).exists()]
+    stale = [r for r in SUPERSEDED if (target / r).exists()]
+
+    if clash and not replace:
+        print(f"{len(clash)} file(s) in {target} differ from what this version ships:")
+        for relative in clash:
+            print(f"  {target / relative}")
+        print()
+        print("Nothing was written. This installer creates what is missing and")
+        print("never overwrites what is already there, because it cannot tell an")
+        print("older version from an edit you made on purpose. Remove the files")
+        print("above and re-run, or ./uninstall.sh for a clean slate, or re-run")
+        print("with --replace to have them written over.")
+        sys.exit(1)
+
+    if not create and not clash and not sounds and not stale and merged == current:
+        print(f"Already installed in {target}, with these settings. Nothing changed.")
+        return
+
+    print(f"Installing into {target}")
+    target.mkdir(parents=True, exist_ok=True)
+    for relative in stale:
+        (target / relative).unlink()
+        print(f"  removed       {relative}")
+    for relative in sorted(set(create) | set(clash if replace else [])):
+        path = target / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(wanted[relative])
+        print(f"  {'replaced' if relative in clash else 'created':<14}{relative}")
+    for relative in sorted(set(wanted) - set(create) - set(clash)):
+        print(f"  unchanged     {relative}")
+    if sounds:
+        (target / "sounds").mkdir(parents=True, exist_ok=True)
+        subprocess.run([python, str(REPO / "sounds" / "generate.py"),
+                        str(target / "sounds")], check=True)
+
+    if merged == current:
+        print("  unchanged     settings.json")
+    else:
+        if settings.exists():
+            stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup = settings.with_name(f"settings.json.bak-{stamp}")
+            shutil.copy2(settings, backup)
+            print(f"  backup        {backup.name}")
+        settings.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8")
+        print("  updated       settings.json")
+
     print()
-    if tabs:
+    if chosen["tabs"]:
         print("Tab marker: run install-vscode.py to add the editor setting, then")
         print("start a NEW session -- the env block is read at startup.")
-    if kaizen:
+    if chosen["kaizen"]:
         print("Kaizen: /kaizen appears once Claude Code has restarted -- a skills")
         print("directory that did not exist at startup is not watched.")
-    print("Done. Restart Claude Code itself: settings.json is read at startup,")
-    print("and reloading the editor window reconnects to existing terminals")
-    print("rather than restarting them.")
+    if merged != current:
+        print("Done. Restart Claude Code itself: settings.json is read at startup,")
+        print("and reloading the editor window reconnects to existing terminals")
+        print("rather than restarting them.")
+    else:
+        print("Done. Files only -- settings.json was already correct.")
 
 
 if __name__ == "__main__":

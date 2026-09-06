@@ -59,6 +59,35 @@ your own permissions, plugins and environment survive.
 | `--warn N` | gauge turns orange at N tokens (default 100000) |
 | `--alert N` | gauge turns red at N tokens (default 200000) |
 | `--defaults` | install the defaults without asking |
+| `--replace` | overwrite delivered files that differ |
+
+### Running it twice
+
+The installer creates what is missing, leaves what is already identical, and
+writes `settings.json` only when the merge would change it. A second run with
+the same answers prints one line and stops:
+
+```
+Already installed in /home/you/.claude, with these settings. Nothing changed.
+```
+
+No file is touched on that path, and no `settings.json.bak-…` is left behind.
+`./uninstall.sh` behaves the same way when there is nothing of ours left.
+
+What it will **not** do is overwrite. A delivered file that exists with
+different content — an older version, or an edit you made on purpose — stops
+the run before anything is written, names the files, and leaves the choice to
+you: remove them, run `./uninstall.sh`, or re-run with `--replace`. There is no
+half-installed state to recover from, because a refused run writes nothing at
+all.
+
+The two sounds are exempt in the other direction: they are **never** rewritten,
+because dropping your own WAV over them is a documented way to change them.
+`python3 sounds/generate.py --force ~/.claude/sounds` puts the originals back.
+
+The interview's brackets hold what is installed right now rather than what
+ships by default, so pressing Enter through it reproduces your current setup
+instead of resetting it.
 
 The two thresholds are written onto the status line command in `settings.json`,
 not into its `env` block, and only when they differ from the defaults. That file

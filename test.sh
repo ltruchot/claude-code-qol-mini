@@ -215,6 +215,64 @@ fi
 rm -rf "$INST"
 
 echo
+echo "Idempotence"
+IDEM="$(mktemp -d)"
+says() {
+    local label="$1" want="$2"; shift 2
+    local out
+    out="$(CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/install.py" "$@" </dev/null 2>&1)"
+    local code=$?
+    case "$out" in
+        *"$want"*) printf '  ok    %-34s %s\n' "$label" "$want" ;;
+        *) printf '  FAIL  %-34s wanted %s\n' "$label" "$want"
+           printf '%s\n' "$out" | sed 's/^/          /'; failures=$((failures + 1)) ;;
+    esac
+    return $code
+}
+says "a first install writes"        "created"        --tab-state
+says "a second one writes nothing"   "Nothing changed" --tab-state
+BEFORE="$(ls "$IDEM" "$IDEM/hooks" | md5sum)"
+says "and leaves no backup behind"   "Nothing changed" --tab-state
+if [ "$BEFORE" = "$(ls "$IDEM" "$IDEM/hooks" | md5sum)" ]; then
+    echo "  ok    no file appears on a no-op"
+else
+    echo "  FAIL  a no-op run touched the directory"; failures=$((failures + 1))
+fi
+
+# An edited file is never overwritten: the installer cannot tell an old version
+# from a change made on purpose, so it refuses everything and says what to drop.
+echo "# edited by hand" >> "$IDEM/hooks/tab-state.py"
+CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/install.py" --tab-state </dev/null >/dev/null 2>&1
+if [ $? -eq 1 ] && grep -q 'edited by hand' "$IDEM/hooks/tab-state.py"; then
+    echo "  ok    an edited file is left alone"
+else
+    echo "  FAIL  an edited file was overwritten"; failures=$((failures + 1))
+fi
+says "--replace writes over it"      "replaced"       --tab-state --replace
+if grep -q 'edited by hand' "$IDEM/hooks/tab-state.py"; then
+    echo "  FAIL  --replace did not replace"; failures=$((failures + 1))
+else
+    echo "  ok    --replace does replace"
+fi
+
+# The README tells you to drop your own WAV in. An install must not undo that.
+printf 'MY OWN PING' > "$IDEM/sounds/done.wav"
+CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/install.py" --tab-state </dev/null >/dev/null 2>&1
+if [ "$(cat "$IDEM/sounds/done.wav")" = "MY OWN PING" ]; then
+    echo "  ok    a custom sound survives"
+else
+    echo "  FAIL  a custom sound was regenerated"; failures=$((failures + 1))
+fi
+
+CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/uninstall.py" >/dev/null 2>&1
+out="$(CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/uninstall.py" 2>&1)"
+case "$out" in
+    *"Nothing changed"*) echo "  ok    a second uninstall is a no-op" ;;
+    *) echo "  FAIL  uninstall is not idempotent"; failures=$((failures + 1)) ;;
+esac
+rm -rf "$IDEM"
+
+echo
 echo "Tab state"
 out="$(printf '%s' '{"cwd":"/tmp/demo","hook_event_name":"Stop"}' | python3 "$REPO/hooks/tab-state.py" idle)"
 # terminalSequence must sit at the ROOT of the output: nested inside

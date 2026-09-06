@@ -4,7 +4,7 @@
 Uses only the standard library, so nothing has to be installed and no binary
 blobs need to live in the repository.
 
-Usage: python3 generate.py <output-directory>
+Usage: python3 generate.py [--force] <output-directory>
 """
 import math
 import pathlib
@@ -16,12 +16,19 @@ RATE = 44100
 FADE_SECONDS = 0.008
 
 
-def write_tone(notes, path, volume):
+def write_tone(notes, path, volume, force=False):
     """Write a small mono WAV from a list of (frequency_hz, duration_s) notes.
 
     Each note is faded in and out: without that, the abrupt start and stop of a
     sine wave produce a click that is louder and harsher than the note itself.
+
+    An existing file is left alone unless --force is given: dropping your own
+    WAV in here is a documented way to change the sound, and regenerating over
+    it on every install would undo that without a word.
     """
+    if path.exists() and not force:
+        print(f"{path} (kept, already there)")
+        return
     frames = bytearray()
     for frequency, duration in notes:
         count = int(RATE * duration)
@@ -38,15 +45,18 @@ def write_tone(notes, path, volume):
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("usage: generate.py <output-directory>")
-    out = pathlib.Path(sys.argv[1])
+    arguments = sys.argv[1:]
+    force = "--force" in arguments
+    directories = [a for a in arguments if not a.startswith("-")]
+    if len(directories) != 1:
+        sys.exit("usage: generate.py [--force] <output-directory>")
+    out = pathlib.Path(directories[0])
     out.mkdir(parents=True, exist_ok=True)
 
     # Two rising notes: meant to be noticed, because you are being waited on.
-    write_tone([(660, 0.11), (880, 0.16)], out / "needs-you.wav", volume=0.28)
+    write_tone([(660, 0.11), (880, 0.16)], out / "needs-you.wav", volume=0.28, force=force)
     # One lower, quieter note: meant to inform without demanding attention.
-    write_tone([(440, 0.20)], out / "done.wav", volume=0.20)
+    write_tone([(440, 0.20)], out / "done.wav", volume=0.20, force=force)
 
     for name in ("needs-you.wav", "done.wav"):
         print(f"{out / name} ({(out / name).stat().st_size} bytes)")

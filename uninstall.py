@@ -18,23 +18,31 @@ EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
 
 target = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR") or pathlib.Path.home() / ".claude")
 
+removed = []
 for relative in ("statusline-context.py", "hooks/tab-state.py",
                  "hooks/precompact-kaizen.py", "hooks/precompact-friction.py",
                  "skills/kaizen/SKILL.md", "sounds/play.py",
                  "sounds/needs-you.wav", "sounds/done.wav"):
-    (target / relative).unlink(missing_ok=True)
-shutil.rmtree(target / "state", ignore_errors=True)
+    if (target / relative).exists():
+        (target / relative).unlink()
+        removed.append(relative)
+if (target / "state").exists():
+    shutil.rmtree(target / "state", ignore_errors=True)
+    removed.append("state/")
 for directory in ("skills/kaizen", "skills", "hooks", "sounds"):
     try:
         (target / directory).rmdir()
     except OSError:
         pass  # the user put something else in there; leave it alone
+for relative in removed:
+    print(f"  removed       {relative}")
 
 settings = target / "settings.json"
+touched = bool(removed)
 if settings.exists():
-    data = json.loads(settings.read_text(encoding="utf-8") or "{}")
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    shutil.copy2(settings, settings.with_name(f"settings.json.bak-{stamp}"))
+    original = settings.read_text(encoding="utf-8") or "{}"
+    data = json.loads(original)
+    before = json.dumps(data, sort_keys=True)
 
     data.pop("statusLine", None)
     env = data.get("env", {})
@@ -57,8 +65,17 @@ if settings.exists():
     if not hooks:
         data.pop("hooks", None)
 
-    settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-                        encoding="utf-8")
-    print(f"cleaned {settings}")
+    # Same rule as the installer: write only when something actually changes,
+    # so a second uninstall neither rewrites the file nor leaves a backup.
+    if json.dumps(data, sort_keys=True) != before:
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        shutil.copy2(settings, settings.with_name(f"settings.json.bak-{stamp}"))
+        settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8")
+        print(f"  cleaned       {settings.name}")
+        touched = True
 
-print("Done. Restart Claude Code.")
+if touched:
+    print("Done. Restart Claude Code.")
+else:
+    print(f"Nothing of ours left in {target}. Nothing changed.")

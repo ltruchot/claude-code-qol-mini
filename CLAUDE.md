@@ -138,6 +138,25 @@ C'est aussi pourquoi **le lecteur de son est en Python** et non en shell : sur W
 Bash, Claude Code exécute les hooks via PowerShell. `winsound`, de la bibliothèque standard, donne
 l'audio Windows sans lecteur externe.
 
+### Un installeur ne recouvre rien : il crée, il laisse, ou il refuse
+
+`install.py` calcule d'abord tout ce qu'il écrirait, puis compare. Trois issues et pas une de plus :
+le fichier manque, il l'écrit ; il est identique, il le laisse ; il diffère, **il n'écrit rien du
+tout** — ni ce fichier, ni les autres, ni `settings.json` — nomme les fichiers et rend la main.
+`--replace` est la seule façon de recouvrir.
+
+Le motif : un installeur ne sait pas distinguer une version ancienne d'une modification faite
+exprès. Et un refus partiel serait pire que le recouvrement, d'où le plan complet avant la moindre
+écriture : une exécution refusée ne laisse aucun état à moitié installé.
+
+`settings.json` n'est réécrit que si la fusion le change réellement — sinon pas d'écriture, et
+**pas de `.bak-` de plus**. Une seconde installation à l'identique affiche une ligne et s'arrête.
+`uninstall.py` suit la même règle.
+
+*À ne pas faire* : régénérer les sons. Le `README` invite à déposer son propre WAV par-dessus ;
+`generate.py` saute donc un fichier déjà présent, et il faut `--force` pour l'écraser. La version
+d'avant les recréait à chaque installation et annulait ce réglage sans un mot.
+
 ### Un installeur qui ajoute doit aussi retirer
 
 `install.py` purge **ses propres** handlers avant de reposer ceux qui sont actifs, sinon désactiver
@@ -182,7 +201,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 51 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 60 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -211,7 +230,7 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                      # 51 contrôles, sans rien installer
+./test.sh                      # 60 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

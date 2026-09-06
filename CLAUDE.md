@@ -242,10 +242,10 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                      # 61 contrôles, sans rien installer
-./install.sh --tab-state       # installe tout
-./install-vscode.sh            # règle l'éditeur, puis session NEUVE
-./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre
+./test.sh                           # 61 contrôles, sans rien installer
+./install.sh --tab-state --replace  # sans --replace, un fichier livré modifié fait refuser
+./install-vscode.sh                 # règle l'éditeur, puis session NEUVE
+./uninstall.sh                      # retire ce qu'on a posé, et rien d'autre
 ```
 
 `CLAUDE_CONFIG_DIR` détourne l'installation vers un dossier jetable : c'est ainsi qu'on éprouve un

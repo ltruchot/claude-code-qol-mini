@@ -55,6 +55,41 @@ for case in "unknown-sound-name:missing file" ":no argument"; do
 done
 
 echo
+echo "Friction reviewer"
+STATE="$(mktemp -d)"
+friction() {
+    printf '%s' "$2" | CLAUDE_CONFIG_DIR="$STATE" python3 "$REPO/hooks/precompact-friction.py" >/dev/null 2>&1
+    local got=$?
+    if [ "$got" -eq "$3" ]; then
+        printf '  ok    %-34s exit %d\n' "$1" "$got"
+    else
+        printf '  FAIL  %-34s exit %d, wanted %d\n' "$1" "$got" "$3"
+        failures=$((failures + 1))
+    fi
+}
+friction "manual blocks the first time"   '{"session_id":"t","trigger":"manual"}' 2
+friction "second call lets it through"    '{"session_id":"t","trigger":"manual"}' 0
+friction "and re-arms for the next one"   '{"session_id":"t","trigger":"manual"}' 2
+friction "auto never blocks"              '{"session_id":"u","trigger":"auto"}'   0
+friction "unreadable payload never blocks" 'not json'                             0
+printf '%s' '{"session_id":"v","trigger":"manual"}' | CLAUDE_CONFIG_DIR=/proc/impossible python3 "$REPO/hooks/precompact-friction.py" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    printf '  ok    %-34s exit 0\n' "unwritable state never blocks"
+else
+    printf '  FAIL  %-34s\n' "unwritable state never blocks"; failures=$((failures + 1))
+fi
+rm -rf "$STATE"
+
+echo
+echo "Tab state"
+out="$(printf '%s' '{"cwd":"/tmp/demo","hook_event_name":"Stop"}' | python3 "$REPO/hooks/tab-state.py" waiting)"
+if printf '%s' "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hookSpecificOutput']['terminalSequence'].startswith('\033]0;'); assert 'demo' in d['hookSpecificOutput']['terminalSequence']" 2>/dev/null; then
+    echo "  ok    emits a valid OSC 0 title sequence"
+else
+    echo "  FAIL  tab-state output"; failures=$((failures + 1))
+fi
+
+echo
 if [ $failures -eq 0 ]; then
     echo "All checks passed."
 else

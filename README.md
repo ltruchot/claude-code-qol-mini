@@ -2,8 +2,9 @@
 
 A small, comfortable [Claude Code](https://code.claude.com) setup: a status line
 that always shows how much context you are carrying, two sounds that tell you
-when Claude wants you and when it has stopped working, and a coloured marker on
-the VS Code terminal tab so you can see which session needs you.
+when Claude wants you and when it has stopped working, a coloured marker on the
+VS Code terminal tab so you can see which session needs you, and a review at
+compaction time so the same pitfall is not paid twice.
 
 Everything lives in your Claude Code config directory. Nothing here is tied to a
 machine, an account, or a project.
@@ -20,6 +21,7 @@ Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250k/200k · my-project  
 git clone https://github.com/ltruchot/vscode-comfy-claude-config.git
 cd vscode-comfy-claude-config
 ./install.sh
+./install-vscode.sh    # enables the terminal tab marker in VS Code
 ```
 
 Then **restart Claude Code** — `settings.json` is only read at startup.
@@ -150,11 +152,23 @@ tabs tells you which one wants you:
 ```
 
 **This needs one VS Code setting**, because by default a tab is titled after the
-process name. Add to your VS Code `settings.json`:
+process name. `./install-vscode.sh` writes it for you:
 
 ```json
 { "terminal.integrated.tabs.title": "${sequence}" }
 ```
+
+It finds every `settings.json` that applies — the local install for Code, Code -
+Insiders, VSCodium and Cursor, the machine-scope file a remote session uses
+(`~/.vscode-server/data/Machine/`), and, under WSL, the client's own user
+settings on the Windows side, since that is where a non-machine setting is read
+from. Then reload the window.
+
+The file is **JSONC**: VS Code allows comments and trailing commas in it, and
+parsing then re-serialising would delete yours without a word. So the key is
+inserted textually after the opening brace and the rest of the file is left byte
+for byte as it was. Run it with `--dry-run` to see the targets first, `--force`
+to overwrite a value you already have.
 
 Two things this is *not*, both worth knowing before you go looking for them:
 
@@ -175,19 +189,54 @@ documented `terminalSequence` output field, and it does the writing.
 Change the markers at the top of `hooks/tab-state.py`. Skip the whole feature
 with `./install.sh --no-tab-state`.
 
+## Capturing friction at compaction time
+
+Compaction is the moment a session's hard-won detail is about to be summarised
+away, which makes it exactly the right moment to ask what should outlive it.
+
+With this installed, `/compact` first stops and hands the session a job: look
+back over what actually caused friction — a wrong assumption you had to undo, a
+command that failed for a non-obvious reason, a convention you got wrong — and
+propose each item **one at a time**, saying where it belongs (this project's
+`CLAUDE.md`, your user-level one, or a specific skill). You accept, rewrite, or
+discard each one. Only what you accept is written. Then you run `/compact` again
+and it goes through.
+
+Two design points that are not arbitrary:
+
+- **The review is not done inside the hook.** A hook cannot talk to you — it runs
+  with no controlling terminal and can show no dialog — and, more to the point,
+  the session about to be compacted still holds the whole context in mind. It is
+  a far better reviewer than a subagent re-reading a transcript from disk. So the
+  hook only blocks the compaction and hands the work back.
+- **Automatic compaction is never blocked.** It fires because the context is
+  full; refusing it could leave the session with nowhere to go. On `auto` the
+  hook asks for the review to happen *after* compaction instead, and lets it
+  proceed.
+
+A guard file in `$CLAUDE_CONFIG_DIR/state/` keeps this to once per compaction,
+re-arms for the next one, and is swept after seven days if a session ends
+mid-review. Every failure path exits 0: an unreadable payload or an unwritable
+state directory must never make `/compact` unusable.
+
+Skip it with `./install.sh --no-friction`.
+
 ## What gets written
 
 ```
 $CLAUDE_CONFIG_DIR/
 ├── statusline-context.py
 ├── hooks/
-│   └── tab-state.py
+│   ├── tab-state.py
+│   └── precompact-friction.py
+├── state/                 guard files for the friction reviewer
 ├── sounds/
 │   ├── play.sh
 │   ├── needs-you.wav
 │   └── done.wav
 └── settings.json          merged: statusLine, and the hooks for
-                           Notification, Stop, UserPromptSubmit, SessionEnd
+                           Notification, Stop, UserPromptSubmit,
+                           SessionEnd and PreCompact
 ```
 
 ## References

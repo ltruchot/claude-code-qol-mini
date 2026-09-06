@@ -11,14 +11,16 @@ CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 WITH_STATUSLINE=1
 WITH_SOUNDS=1
 WITH_TAB_STATE=1
+WITH_FRICTION=1
 
 for arg in "$@"; do
     case "$arg" in
         --no-statusline) WITH_STATUSLINE=0 ;;
         --no-sounds)     WITH_SOUNDS=0 ;;
         --no-tab-state)  WITH_TAB_STATE=0 ;;
+        --no-friction)   WITH_FRICTION=0 ;;
         -h|--help)
-            echo "usage: install.sh [--no-statusline] [--no-sounds] [--no-tab-state]"
+            echo "usage: install.sh [--no-statusline] [--no-sounds] [--no-tab-state] [--no-friction]"
             echo
             echo "Installs into \$CLAUDE_CONFIG_DIR, or ~/.claude when unset."
             exit 0
@@ -51,6 +53,12 @@ if [ "$WITH_TAB_STATE" -eq 1 ]; then
     echo "  tab state     $CONFIG_DIR/hooks/tab-state.py"
 fi
 
+if [ "$WITH_FRICTION" -eq 1 ]; then
+    mkdir -p "$CONFIG_DIR/hooks"
+    cp "$REPO/hooks/precompact-friction.py" "$CONFIG_DIR/hooks/precompact-friction.py"
+    echo "  friction      $CONFIG_DIR/hooks/precompact-friction.py"
+fi
+
 if [ "$WITH_SOUNDS" -eq 1 ]; then
     mkdir -p "$CONFIG_DIR/sounds"
     cp "$REPO/sounds/play.sh" "$CONFIG_DIR/sounds/play.sh"
@@ -64,6 +72,7 @@ CONFIG_DIR="$CONFIG_DIR" \
 WITH_STATUSLINE="$WITH_STATUSLINE" \
 WITH_SOUNDS="$WITH_SOUNDS" \
 WITH_TAB_STATE="$WITH_TAB_STATE" \
+WITH_FRICTION="$WITH_FRICTION" \
 python3 <<'PY'
 import datetime
 import json
@@ -143,6 +152,12 @@ if sounds or tabs:
     if tabs:
         hooks["UserPromptSubmit"] = [{"hooks": [tab("working")]}]
         hooks["SessionEnd"] = [{"hooks": [tab("stopped")]}]
+
+if os.environ["WITH_FRICTION"] == "1":
+    hooks = data.setdefault("hooks", {})
+    hooks["PreCompact"] = [{"hooks": [
+        handler(f"python3 {prefix}/hooks/precompact-friction.py"),
+    ]}]
 
 settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 print(f"  settings      {settings}")

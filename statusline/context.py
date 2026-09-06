@@ -10,6 +10,11 @@ boundary: past it lie the turns that were just summarized away, and reporting
 one of those is how the readout used to sit on its pre-compact figure until the
 next API response replaced it.
 
+Thresholds come from --warn and --alert when the installer wrote them into the
+status line command, from CC_CONTEXT_WARN and CC_CONTEXT_ALERT otherwise. The
+arguments win because settings.json is re-read hot while its `env` block is only
+read at startup: changing a threshold through them takes effect at once.
+
 Colors and the gauge follow fixed token thresholds, not a share of the window:
 what matters is the absolute size of what is being re-sent on every request. The
 readout is shown over ALERT_AT rather than over the window size, so crossing the
@@ -20,8 +25,24 @@ import json
 import os
 import sys
 
-WARN_AT = int(os.environ.get("CC_CONTEXT_WARN", "100000"))
-ALERT_AT = int(os.environ.get("CC_CONTEXT_ALERT", "200000"))
+def threshold(flag, variable, default):
+    """Command-line value, else environment, else the default. Never raises."""
+    arguments = sys.argv[1:]
+    for index, argument in enumerate(arguments):
+        if argument == flag and index + 1 < len(arguments):
+            raw = arguments[index + 1]
+        elif argument.startswith(f"{flag}="):
+            raw = argument.split("=", 1)[1]
+        else:
+            continue
+        if raw.isdigit() and int(raw) > 0:
+            return int(raw)
+    raw = os.environ.get(variable, "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else default
+
+
+WARN_AT = threshold("--warn", "CC_CONTEXT_WARN", 100000)
+ALERT_AT = threshold("--alert", "CC_CONTEXT_ALERT", 200000)
 BAR_WIDTH = 10
 
 RESET, BOLD, DIM = "\033[0m", "\033[1m", "\033[2m"

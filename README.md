@@ -23,6 +23,26 @@ cd vscode-comfy-claude-config
 ./install.sh          # or: .\\install.ps1 on Windows PowerShell
 ```
 
+With no arguments it asks what to install, one feature at a time, with the
+default in brackets and Enter to accept it:
+
+```
+  The gauge counts what is re-sent to the model on every request, and
+  turns orange then red at fixed token counts -- not at a share of the
+  window, which would stay near-empty on a 1M model.
+  Context gauge in the status line? [Y/n]
+  Orange at how many tokens? [100000]
+  Red at how many tokens? [200000]
+
+  Notification sounds? [Y/n]
+  Friction review before /compact, via /kaizen? [Y/n]
+  Terminal tab marker? [y/N]
+```
+
+Pass any option and it asks nothing — that is what CI and `test.sh` rely on, and
+a piped or redirected stdin takes the same path. `--defaults` installs the
+defaults without a single question.
+
 Then **restart Claude Code** — `settings.json` is only read at startup.
 
 The installer writes into `$CLAUDE_CONFIG_DIR`, or `~/.claude` when that
@@ -30,7 +50,21 @@ variable is unset. It **merges** into your `settings.json` rather than replacing
 it, and copies the previous file to `settings.json.bak-<timestamp>` first, so
 your own permissions, plugins and environment survive.
 
-Options: `--no-sounds`, `--no-statusline`, `--no-kaizen`, `--tab-state`.
+| Option | Effect |
+|---|---|
+| `--no-statusline` | leave the context gauge out |
+| `--no-sounds` | leave the notification sounds out |
+| `--tab-state` | add the terminal tab marker |
+| `--no-kaizen` | leave the `/compact` friction review out |
+| `--warn N` | gauge turns orange at N tokens (default 100000) |
+| `--alert N` | gauge turns red at N tokens (default 200000) |
+| `--defaults` | install the defaults without asking |
+
+The two thresholds are written onto the status line command in `settings.json`,
+not into its `env` block, and only when they differ from the defaults. That file
+is re-read hot while `env` is read at startup, so changing a threshold takes
+effect without a new session — and `CC_CONTEXT_WARN` / `CC_CONTEXT_ALERT` keep
+working for anyone who set them that way.
 
 To remove everything it added, and only that: `./uninstall.sh` (`.\\uninstall.ps1`).
 

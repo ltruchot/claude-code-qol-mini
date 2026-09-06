@@ -20,6 +20,10 @@ contributeurs, les commits devront passer à l'anglais.
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
 réglage éditeur par `install-vscode.py`, contrôles par `test.sh`.
 
+Sans argument et sur un vrai terminal, `install.py` **interroge** : jauge et ses deux seuils, sons,
+kaizen, marqueur d'onglet. Dès qu'une option est passée — ou que `stdin` n'est pas un terminal — il
+n'interroge plus rien : une invite qui bloque un runner CI est un défaut, pas un confort.
+
 ## Les contraintes qui ne se devinent pas
 
 Chacune a été payée dans cette session, et aucune n'est visible en lisant le code.
@@ -178,7 +182,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 43 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 51 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -207,7 +211,7 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                      # 43 contrôles, sans rien installer
+./test.sh                      # 51 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

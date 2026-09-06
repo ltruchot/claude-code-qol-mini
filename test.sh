@@ -155,6 +155,57 @@ if grep -q 'precompact-kaizen.py' "$INST/settings.json" 2>/dev/null; then
 else
     echo "  FAIL  PreCompact hook missing"; failures=$((failures + 1))
 fi
+
+echo
+echo "Setup"
+# Options mean someone already decided: no prompt may ever block CI.
+setup() {
+    local label="$1" want="$2"; shift 2
+    CLAUDE_CONFIG_DIR="$INST" python3 "$REPO/install.py" "$@" >/dev/null 2>&1 </dev/null
+    local got=$?
+    if [ "$got" -eq "$want" ]; then
+        printf '  ok    %-34s exit %d\n' "$label" "$got"
+    else
+        printf '  FAIL  %-34s exit %d, wanted %d\n' "$label" "$got" "$want"
+        failures=$((failures + 1))
+    fi
+}
+setup "an unknown option is refused"  1 --no-such-thing
+setup "warn above alert is refused"   1 --no-sounds --warn 300000 --alert 200000
+setup "a threshold needs a number"    1 --no-sounds --warn banana
+setup "thresholds are accepted"       0 --no-sounds --warn=120000 --alert 250000
+if grep -q -- '--warn 120000 --alert 250000' "$INST/settings.json"; then
+    echo "  ok    thresholds reach the status line"
+else
+    echo "  FAIL  thresholds missing from settings.json"; failures=$((failures + 1))
+fi
+setup "defaults stay off the command"  0 --no-sounds --defaults
+if grep -q -- '--warn' "$INST/settings.json"; then
+    echo "  FAIL  a default threshold was written"; failures=$((failures + 1))
+else
+    echo "  ok    defaults leave CC_CONTEXT_* usable"
+fi
+# The interview is only reached from a terminal, so drive it directly.
+if python3 - "$REPO" >/dev/null 2>&1 <<'PY'
+import builtins, importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location("installer", pathlib.Path(sys.argv[1]) / "install.py")
+installer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(installer)
+answers = iter(["", "150000", "90000", "180000", "n", "", "y"])
+builtins.input = lambda prompt="": next(answers)
+chosen = installer.interview()
+assert chosen == {"statusline": True, "sounds": False, "tabs": True,
+                  "kaizen": True, "warn": 150000, "alert": 180000}, chosen
+# Enter everywhere must give exactly the documented defaults.
+answers = iter([""] * 10)
+assert installer.interview() == installer.DEFAULTS
+PY
+then
+    echo "  ok    the interview reads answers"
+else
+    echo "  FAIL  the interview mis-reads answers"; failures=$((failures + 1))
+fi
+
 CLAUDE_CONFIG_DIR="$INST" python3 "$REPO/uninstall.py" >/dev/null 2>&1
 if [ ! -e "$INST/skills/kaizen" ]; then
     echo "  ok    uninstall removes the skill"

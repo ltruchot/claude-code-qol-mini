@@ -28,6 +28,25 @@ MARKERS = {
 }
 
 
+def paused_on_background(data):
+    """True when the turn ended only to wait on work that will wake it back up.
+
+    A Stop payload carries `background_tasks` and `session_crons` for exactly
+    this purpose: the reference offers them as the way to tell "the session is
+    done" from "the session is paused waiting for background work to wake it
+    back up". Both arrays are present and empty when nothing is in flight, and
+    every task type listed there -- shell, subagent, monitor, workflow,
+    teammate, cloud session, MCP task -- re-enters the session when it ends.
+
+    No other event carries them, so this reads False everywhere else. That
+    matters for the sounds: a permission prompt still rings while a subagent
+    runs, because that one really is waiting on you. And if the session turns
+    out to be idle after all, `idle_prompt` fires about a minute later and gets
+    the marker back to red.
+    """
+    return bool(data.get("background_tasks") or data.get("session_crons"))
+
+
 def main():
     state = sys.argv[1] if len(sys.argv) > 1 else "waiting"
 
@@ -35,6 +54,11 @@ def main():
         data = json.load(sys.stdin)
     except ValueError:
         data = {}
+
+    # Parked on a subagent or a background command is not your turn: the
+    # session resumes on its own, so it stays green rather than calling you.
+    if state == "waiting" and paused_on_background(data):
+        state = "working"
 
     # The folder name is kept in the title: it is what tells several Claude
     # terminals apart, and ${sequence} replaces the whole tab title.
@@ -54,4 +78,5 @@ def main():
     json.dump({"terminalSequence": f"\033]0;{title}\007"}, sys.stdout)
 
 
-main()
+if __name__ == "__main__":
+    main()

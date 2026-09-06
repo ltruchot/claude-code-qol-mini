@@ -189,6 +189,53 @@ else
     echo "  FAIL  marker override"; failures=$((failures + 1))
 fi
 
+# Parked on a subagent is not your turn: Stop carries background_tasks and
+# session_crons precisely so a hook can tell "done" from "paused".
+parked() {
+    local label="$1" payload="$2" want="$3" out
+    out="$(printf '%s' "$payload" | CC_TAB_WAITING='RED' CC_TAB_WORKING='GREEN' \
+           python3 "$REPO/hooks/tab-state.py" waiting)"
+    case "$out" in
+        *"$want"*) printf '  ok    %-34s %s\n' "$label" "$want" ;;
+        *) printf '  FAIL  %-34s wanted %s, got %s\n' "$label" "$want" "$out"; failures=$((failures + 1)) ;;
+    esac
+}
+parked "an empty registry is your turn" \
+       '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[]}' RED
+parked "a running subagent stays green" \
+       '{"cwd":"/tmp/demo","background_tasks":[{"id":"t1","type":"subagent","status":"running"}],"session_crons":[]}' GREEN
+parked "a background shell stays green" \
+       '{"cwd":"/tmp/demo","background_tasks":[{"id":"t2","type":"shell","status":"running"}]}' GREEN
+parked "a scheduled wakeup stays green" \
+       '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[{"id":"c1","schedule":"* * * * *"}]}' GREEN
+parked "a payload without the arrays"  '{"cwd":"/tmp/demo"}' RED
+
+# The rule lives in two files that are installed separately. They must agree.
+if python3 - "$REPO" <<'PY'
+import importlib.util, pathlib, sys
+repo = pathlib.Path(sys.argv[1])
+loaded = {}
+for name, rel in (("player", "sounds/play.py"), ("tabs", "hooks/tab-state.py")):
+    spec = importlib.util.spec_from_file_location(name, repo / rel)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    loaded[name] = module.paused_on_background
+cases = [
+    ({}, False),
+    ({"background_tasks": [], "session_crons": []}, False),
+    ({"background_tasks": [{"id": "t", "type": "subagent"}]}, True),
+    ({"session_crons": [{"id": "c"}]}, True),
+]
+for payload, want in cases:
+    for name, fn in loaded.items():
+        assert fn(payload) is want, (name, payload)
+PY
+then
+    echo "  ok    both hooks share one rule"
+else
+    echo "  FAIL  the two hooks disagree"; failures=$((failures + 1))
+fi
+
 echo
 if [ $failures -eq 0 ]; then
     echo "All checks passed."

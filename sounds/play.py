@@ -18,6 +18,7 @@ Two properties matter more than the sound itself:
 
 Usage: play.py <sound-name>
 """
+import json
 import os
 import pathlib
 import subprocess
@@ -37,6 +38,25 @@ POSIX_PLAYERS = (
     ("play", ("-q",)),                                         # sox
 )
 RAW_ONLY = {"aplay"}  # cannot decode compressed formats
+
+
+def paused_on_background(data):
+    """True when the turn ended only to wait on work that will wake it back up.
+
+    A Stop payload carries `background_tasks` and `session_crons` for exactly
+    this purpose: the reference offers them as the way to tell "the session is
+    done" from "the session is paused waiting for background work to wake it
+    back up". Both arrays are present and empty when nothing is in flight, and
+    every task type listed there -- shell, subagent, monitor, workflow,
+    teammate, cloud session, MCP task -- re-enters the session when it ends.
+
+    No other event carries them, so this reads False everywhere else. That
+    matters for the sounds: a permission prompt still rings while a subagent
+    runs, because that one really is waiting on you. And if the session turns
+    out to be idle after all, `idle_prompt` fires about a minute later and gets
+    the marker back to red.
+    """
+    return bool(data.get("background_tasks") or data.get("session_crons"))
 
 
 def find_sound(name):
@@ -92,6 +112,12 @@ def play(sound):
 def main():
     if len(sys.argv) < 2:
         return
+    try:
+        event = json.load(sys.stdin)
+    except (ValueError, OSError):
+        event = {}
+    if paused_on_background(event):
+        return  # the turn is not over; ringing here is the beep for nothing
     sound = find_sound(sys.argv[1])
     if sound is None:
         return
@@ -101,4 +127,5 @@ def main():
         pass  # a sound is never worth disturbing the session for
 
 
-main()
+if __name__ == "__main__":
+    main()

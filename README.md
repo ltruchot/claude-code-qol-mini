@@ -86,7 +86,7 @@ Two different events, so two different sounds:
 | Sound | Hook | Fires when |
 |---|---|---|
 | `needs-you` — two rising notes | `Notification`, matching `permission_prompt`, `idle_prompt`, `agent_needs_input` | Claude is blocked on you: a permission prompt, a question, an idle wait |
-| `done` — one lower, quieter note | `Stop` | Claude finished responding, once per turn |
+| `done` — one lower, quieter note | `Stop` | Claude finished responding, once per turn. Silent when the turn ended only to wait on a subagent or a background command |
 
 Playback is detached, so a slow audio device never delays a turn, and every
 failure path exits 0: a missing file or a dead audio server cannot disturb the
@@ -154,6 +154,13 @@ tabs tells you which one wants you:
 🟢 my-project      Claude is working
 🟨 my-project      the session ended
 ```
+
+Green also covers a turn that ended only to wait on background work — a
+subagent, a workflow, a `run_in_background` command, a scheduled wakeup. The
+session resumes on its own there, so it does not call you, and no sound plays.
+`Stop` carries `background_tasks` and `session_crons` for exactly this
+distinction. If it turns out the session really was idle, `idle_prompt` fires
+about a minute later and the marker goes red.
 
 Install it with `./install.sh --tab-state`, then `./install-vscode.sh`, then
 **start a new session** — one piece of it is read only at startup.

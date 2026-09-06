@@ -326,5 +326,11 @@ tested.
 ./uninstall.sh                      # removes what we laid down, and nothing else
 ```
 
+A change is not delivered until it is installed. The repo is not the running
+harness: `~/.claude` holds a copy, and editing `statusline/context.py` here changes
+nothing on screen. When a change is meant to be visible, run `./install.sh --replace`
+before saying it is done — the gauge was reported fixed while the old copy was still
+running.
+
 `CLAUDE_CONFIG_DIR` points the install at a throwaway folder. That is how a full cycle
 is exercised without touching a real configuration.

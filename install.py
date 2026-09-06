@@ -90,6 +90,19 @@ def main():
         shutil.copy2(settings, backup)
         print(f"  backup        {backup}")
 
+    # Claude Code emits its own OSC 0 title -- an animated spinner plus the
+    # conversation name -- and redraws it continuously, so it wins any race
+    # against the marker. Silencing it is not optional for this feature.
+    env = data.get("env", {})
+    if tabs:
+        env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
+    else:
+        env.pop("CLAUDE_CODE_DISABLE_TERMINAL_TITLE", None)
+    if env:
+        data["env"] = env
+    else:
+        data.pop("env", None)
+
     if statusline:
         data["statusLine"] = {
             "type": "command",
@@ -153,7 +166,8 @@ def main():
     print(f"  settings      {settings}")
     print()
     if tabs:
-        print("Tab marker: run install-vscode.py to add the VS Code / Cursor setting.")
+        print("Tab marker: run install-vscode.py to add the editor setting, then")
+        print("start a NEW session -- the env block is read at startup.")
     print("Done. Restart Claude Code itself: settings.json is read at startup,")
     print("and reloading the editor window reconnects to existing terminals")
     print("rather than restarting them.")

@@ -83,10 +83,27 @@ rm -rf "$STATE"
 echo
 echo "Tab state"
 out="$(printf '%s' '{"cwd":"/tmp/demo","hook_event_name":"Stop"}' | python3 "$REPO/hooks/tab-state.py" waiting)"
-if printf '%s' "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hookSpecificOutput']['terminalSequence'].startswith('\033]0;'); assert 'demo' in d['hookSpecificOutput']['terminalSequence']" 2>/dev/null; then
-    echo "  ok    emits a valid OSC 0 title sequence"
+# terminalSequence must sit at the ROOT of the output: nested inside
+# hookSpecificOutput it is dropped in silence, which is a failure no runtime
+# reports and no rendering reveals.
+if printf '%s' "$out" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert 'terminalSequence' in d, 'terminalSequence must be top-level'
+assert 'hookSpecificOutput' not in d
+assert d['terminalSequence'].startswith('\033]0;'), 'must be OSC 0 (allowlisted)'
+assert d['terminalSequence'].endswith('\007')
+assert 'demo' in d['terminalSequence']
+" 2>/dev/null; then
+    echo "  ok    top-level OSC 0 terminalSequence"
 else
     echo "  FAIL  tab-state output"; failures=$((failures + 1))
+fi
+out="$(printf '%s' '{"cwd":"/tmp/demo"}' | CC_TAB_WAITING='(waiting)' python3 "$REPO/hooks/tab-state.py" waiting)"
+if printf '%s' "$out" | grep -q '(waiting) demo'; then
+    echo "  ok    markers overridable via CC_TAB_*"
+else
+    echo "  FAIL  marker override"; failures=$((failures + 1))
 fi
 
 echo

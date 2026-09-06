@@ -33,6 +33,10 @@ if settings.exists():
     shutil.copy2(settings, settings.with_name(f"settings.json.bak-{stamp}"))
 
     data.pop("statusLine", None)
+    env = data.get("env", {})
+    env.pop("CLAUDE_CODE_DISABLE_TERMINAL_TITLE", None)
+    if not env:
+        data.pop("env", None)
     hooks = data.get("hooks", {})
     for event in EVENTS:
         groups = []

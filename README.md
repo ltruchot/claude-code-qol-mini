@@ -144,13 +144,10 @@ rather tune them than replace them.
 the sounds, delete the `Notification` and `Stop` entries from the `hooks` block
 of your `settings.json`.
 
-## The terminal tab marker (VS Code) — opt-in, with a real caveat
+## The terminal tab marker (VS Code and Cursor)
 
-Install it with `./install.sh --tab-state`, then `./install-vscode.sh`. It is
-**not installed by default**, and the reason is measured rather than theoretical.
-
-The idea is a coloured marker in front of the terminal name, so a wall of
-identical `claude` tabs tells you which one wants you:
+A coloured marker in front of the terminal name, so a wall of identical `claude`
+tabs tells you which one wants you:
 
 ```
 🟠 my-project      your turn, or a session just opened
@@ -158,26 +155,51 @@ identical `claude` tabs tells you which one wants you:
 🔴 my-project      the session ended
 ```
 
-It works by setting `"terminal.integrated.tabs.title": "${sequence}"`, which
-makes the tab show the title programs send over OSC instead of the process name.
+Install it with `./install.sh --tab-state`, then `./install-vscode.sh`, then
+**start a new session** — one piece of it is read only at startup.
 
-**What that costs, and it is not small.** `${sequence}` applies to *every*
-terminal, and every program that sets a title now owns its tab:
+It is opt-in rather than default because of what it costs, below.
 
-- **Claude Code sets its own title** — the conversation's name. So the tab reads
-  `Refactoring the parser` rather than `claude`, and your marker holds only
-  until Claude Code writes again. The hooks fire at session start, on each
-  prompt, on each stop and on each notification, so in practice the marker is
-  usually the last writer — but it is a race, not a guarantee.
-- **Your shell sets one too.** A plain zsh or bash tab stops reading `zsh` and
-  starts reading `you@host:~/some/very/long/path`, which is longer, less useful,
-  and puts your username on screen.
+### The three things that have to line up
 
-`./install-vscode.sh --revert` removes the setting and restores the default
-titles. Judge it on your own terminal list before keeping it: on a list of
-mostly-Claude tabs it can be worth it, on a mixed list it usually is not.
+Each was paid for in a wrong diagnosis, so they are worth stating plainly.
 
-The marker is an emoji in the tab **name**, never the tab's icon or its colour:
+1. **`"terminal.integrated.tabs.title": "${sequence}"`** — without it the tab is
+   titled after the process name and no sequence is ever displayed.
+   `install-vscode.sh` writes it.
+2. **`CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`** — Claude Code emits its own OSC 0
+   title, an animated spinner plus the conversation name, and *redraws it
+   continuously*. It therefore wins every race against the marker, not merely
+   some. `install.sh --tab-state` puts this in the `env` block of your
+   `settings.json`; the `env` block is read at startup, which is why a new
+   session is needed. The trade is real: you lose the animated spinner and the
+   conversation name in exchange for a state marker that is actually visible.
+3. **`terminalSequence` is a top-level field of the hook output**, not a member
+   of `hookSpecificOutput`. Nested — which is how the published schema shows it
+   — it is dropped in silence: no error, no warning, a correct sequence going
+   nowhere. Only OSC 0/1/2/9/99/777 and BEL pass the runtime's allowlist.
+
+### What it costs
+
+`${sequence}` applies to *every* terminal, and every program that sets a title
+now owns its tab. A plain zsh or bash tab stops reading `zsh` and starts reading
+`you@host:~/some/very/long/path`, which is longer, less useful, and puts your
+username on screen. On a list of mostly-Claude tabs the marker is worth it; on a
+mixed list it often is not. `./install-vscode.sh --revert` undoes the setting.
+
+### Changing the markers
+
+Set `CC_TAB_WORKING`, `CC_TAB_WAITING` or `CC_TAB_STOPPED` in the `env` block of
+your `settings.json` — an emoji, an ASCII tag like `[..]`, a word like
+`(working)`, anything the tab renders. An empty value drops that marker.
+
+There is no animation to be had: the hooks fire on events, not on a clock, so
+the marker is a stable state and never a spinner. That is the same reason
+Claude Code has to be silenced — only whoever redraws continuously can animate.
+
+### What it is not
+
+The marker is an emoji in the tab **name**, never the tab's icon or its colour.
 VS Code exposes no escape sequence for those, and only the extension that
 created a terminal can set them, at creation time, via
 `window.createTerminal({ iconPath, color })`. The
@@ -185,8 +207,8 @@ created a terminal can set them, at creation time, via
 was closed as not planned for that reason.
 
 The hook does not write to the terminal itself: hooks run without a controlling
-terminal, so they hand the escape sequence to Claude Code through the documented
-`terminalSequence` output field, and it does the writing.
+terminal, so they hand the sequence to Claude Code through `terminalSequence`,
+and it does the writing.
 
 ## Capturing friction at compaction time
 

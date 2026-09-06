@@ -7,8 +7,10 @@ is not a convenience: hooks run without a controlling terminal, so writing to
 /dev/tty ourselves is not an option -- measured, it does not exist there.
 
 VS Code renders this only when `terminal.integrated.tabs.title` contains
-${sequence}. The tab's usual title comes from the process name, read as
-${process}; the two are separate channels and neither overwrites the other.
+${sequence}. Claude Code emits its own OSC 0 title -- an animated spinner plus
+the conversation name -- and redraws it continuously, so it wins any race
+against ours; set CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 to silence it and let
+this marker stand.
 
 Usage: tab-state.py <working|waiting|stopped>
 """
@@ -16,10 +18,13 @@ import json
 import os
 import sys
 
+# Override any of these with CC_TAB_WORKING, CC_TAB_WAITING, CC_TAB_STOPPED --
+# an emoji, an ASCII tag like "[..]", a word like "(working)", anything the tab
+# will render. An empty value drops the marker for that state.
 MARKERS = {
-    "working": "\U0001F7E2",  # green: Claude is running
-    "waiting": "\U0001F7E0",  # orange: your turn, Claude is waiting on you
-    "stopped": "\U0001F534",  # red: the session ended
+    "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green
+    "waiting": os.environ.get("CC_TAB_WAITING", "\U0001F7E0"),  # orange
+    "stopped": os.environ.get("CC_TAB_STOPPED", "\U0001F534"),  # red
 }
 
 
@@ -39,15 +44,14 @@ def main():
 
     # Anything but strict JSON on stdout would be taken as plain text, and on
     # UserPromptSubmit plain text is injected into the conversation as context.
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": data.get("hook_event_name", ""),
-                "terminalSequence": f"\033]0;{title}\007",
-            }
-        },
-        sys.stdout,
-    )
+    #
+    # `terminalSequence` is a TOP-LEVEL field, not a member of
+    # hookSpecificOutput. The published schema shows it nested; the runtime
+    # reads it from the root of the object, so a nested one is silently
+    # ignored -- measured, eleven hook invocations emitting a correct sequence
+    # that never reached the terminal. Only OSC 0/1/2/9/99/777 and BEL pass the
+    # runtime's allowlist; OSC 0 is the title sequence used here.
+    json.dump({"terminalSequence": f"\033]0;{title}\007"}, sys.stdout)
 
 
 main()

@@ -14,7 +14,7 @@ contributeurs, les commits devront passer à l'anglais.
 |---|---|---|
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
-| Marqueur d'onglet | `hooks/tab-state.py` | 🟠 à toi · 🟢 travaille · 🔴 session finie |
+| Marqueur d'onglet | `hooks/tab-state.py` | 🟡 à toi · 🟢 travaille · 🔴 session finie |
 | Revue des frictions | `hooks/precompact-friction.py` | `/compact` s'arrête, propose les leçons une par une, puis compacte |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,

@@ -167,15 +167,21 @@ def main():
             group["matcher"] = matcher
         hooks.setdefault(event, []).append(group)
 
-    attention = ([hook("sounds/play.py", "needs-you")] if sounds else []) + \
-                ([hook("hooks/tab-state.py", "waiting")] if tabs else [])
-    add("Notification", attention, "permission_prompt|idle_prompt|agent_needs_input")
+    # Red and the rising notes are spent on one thing: Claude cannot go on
+    # without you. `idle_prompt` fires a minute after a turn ends and asks for
+    # nothing, so it gets the resting marker and no sound.
+    blocked = ([hook("sounds/play.py", "needs-you")] if sounds else []) + \
+              ([hook("hooks/tab-state.py", "blocked")] if tabs else [])
+    add("Notification", blocked,
+        "permission_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog")
+    if tabs:
+        add("Notification", [hook("hooks/tab-state.py", "idle")], "idle_prompt")
     add("Stop", ([hook("sounds/play.py", "done")] if sounds else []) +
-                ([hook("hooks/tab-state.py", "waiting")] if tabs else []))
+                ([hook("hooks/tab-state.py", "idle")] if tabs else []))
     if tabs:
         # Claim the tab as soon as the session exists: with ${sequence}
         # configured, a session that emitted nothing yet shows no marker of ours.
-        add("SessionStart", [hook("hooks/tab-state.py", "waiting")])
+        add("SessionStart", [hook("hooks/tab-state.py", "idle")])
         add("UserPromptSubmit", [hook("hooks/tab-state.py", "working")])
         add("SessionEnd", [hook("hooks/tab-state.py", "stopped")])
     if kaizen:

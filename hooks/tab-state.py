@@ -12,18 +12,25 @@ the conversation name -- and redraws it continuously, so it wins any race
 against ours; set CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 to silence it and let
 this marker stand.
 
-Usage: tab-state.py <working|waiting|stopped>
+Usage: tab-state.py <working|blocked|idle|stopped>
 """
 import json
 import os
 import sys
 
-# Override any of these with CC_TAB_WORKING, CC_TAB_WAITING, CC_TAB_STOPPED --
-# an emoji, an ASCII tag like "[..]", a word like "(working)", anything the tab
-# will render. An empty value drops the marker for that state.
+# Override any of these with CC_TAB_WORKING, CC_TAB_BLOCKED, CC_TAB_IDLE,
+# CC_TAB_STOPPED -- an emoji, an ASCII tag like "[..]", a word like "(working)",
+# anything the tab will render. An empty value drops the marker for that state.
+#
+# Red is spent on one thing only: Claude cannot go on without you. Idle gets its
+# own marker because "nothing is asked of you" and "answer me" are different
+# situations, and a red that fires for both stops meaning anything. The two
+# resting states are squares, so they part from red by shape as well as hue --
+# orange alone reads as red from across a tab strip.
 MARKERS = {
-    "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green
-    "waiting": os.environ.get("CC_TAB_WAITING", "\U0001F534"),  # red
+    "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green circle
+    "blocked": os.environ.get("CC_TAB_BLOCKED", "\U0001F534"),  # red circle
+    "idle": os.environ.get("CC_TAB_IDLE", "\U0001F7E7"),        # orange square
     "stopped": os.environ.get("CC_TAB_STOPPED", "\U0001F7E8"),  # yellow square
 }
 
@@ -48,16 +55,16 @@ def paused_on_background(data):
 
 
 def main():
-    state = sys.argv[1] if len(sys.argv) > 1 else "waiting"
+    state = sys.argv[1] if len(sys.argv) > 1 else "idle"
 
     try:
         data = json.load(sys.stdin)
     except ValueError:
         data = {}
 
-    # Parked on a subagent or a background command is not your turn: the
-    # session resumes on its own, so it stays green rather than calling you.
-    if state == "waiting" and paused_on_background(data):
+    # Parked on a subagent or a background command is not idle: the session
+    # resumes on its own, so it stays green rather than going to rest.
+    if state == "idle" and paused_on_background(data):
         state = "working"
 
     # The folder name is kept in the title: it is what tells several Claude

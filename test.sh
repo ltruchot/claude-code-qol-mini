@@ -165,7 +165,7 @@ rm -rf "$INST"
 
 echo
 echo "Tab state"
-out="$(printf '%s' '{"cwd":"/tmp/demo","hook_event_name":"Stop"}' | python3 "$REPO/hooks/tab-state.py" waiting)"
+out="$(printf '%s' '{"cwd":"/tmp/demo","hook_event_name":"Stop"}' | python3 "$REPO/hooks/tab-state.py" idle)"
 # terminalSequence must sit at the ROOT of the output: nested inside
 # hookSpecificOutput it is dropped in silence, which is a failure no runtime
 # reports and no rendering reveals.
@@ -182,8 +182,8 @@ assert 'demo' in d['terminalSequence']
 else
     echo "  FAIL  tab-state output"; failures=$((failures + 1))
 fi
-out="$(printf '%s' '{"cwd":"/tmp/demo"}' | CC_TAB_WAITING='(waiting)' python3 "$REPO/hooks/tab-state.py" waiting)"
-if printf '%s' "$out" | grep -q '(waiting) demo'; then
+out="$(printf '%s' '{"cwd":"/tmp/demo"}' | CC_TAB_IDLE='(idle)' python3 "$REPO/hooks/tab-state.py" idle)"
+if printf '%s' "$out" | grep -q '(idle) demo'; then
     echo "  ok    markers overridable via CC_TAB_*"
 else
     echo "  FAIL  marker override"; failures=$((failures + 1))
@@ -193,22 +193,38 @@ fi
 # session_crons precisely so a hook can tell "done" from "paused".
 parked() {
     local label="$1" payload="$2" want="$3" out
-    out="$(printf '%s' "$payload" | CC_TAB_WAITING='RED' CC_TAB_WORKING='GREEN' \
-           python3 "$REPO/hooks/tab-state.py" waiting)"
+    out="$(printf '%s' "$payload" | CC_TAB_IDLE='ORANGE' CC_TAB_WORKING='GREEN' \
+           python3 "$REPO/hooks/tab-state.py" idle)"
     case "$out" in
         *"$want"*) printf '  ok    %-34s %s\n' "$label" "$want" ;;
         *) printf '  FAIL  %-34s wanted %s, got %s\n' "$label" "$want" "$out"; failures=$((failures + 1)) ;;
     esac
 }
-parked "an empty registry is your turn" \
-       '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[]}' RED
+parked "an empty registry rests"   \
+       '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[]}' ORANGE
 parked "a running subagent stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[{"id":"t1","type":"subagent","status":"running"}],"session_crons":[]}' GREEN
 parked "a background shell stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[{"id":"t2","type":"shell","status":"running"}]}' GREEN
 parked "a scheduled wakeup stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[{"id":"c1","schedule":"* * * * *"}]}' GREEN
-parked "a payload without the arrays"  '{"cwd":"/tmp/demo"}' RED
+parked "a payload without the arrays"  '{"cwd":"/tmp/demo"}' ORANGE
+
+# Four distinct markers, or the tab strip stops carrying information.
+if python3 -c "
+import os, subprocess, sys
+seen = {}
+for state in ('working', 'blocked', 'idle', 'stopped'):
+    out = subprocess.run([sys.executable, '$REPO/hooks/tab-state.py', state],
+                         input='{\"cwd\":\"/tmp/demo\"}', capture_output=True,
+                         text=True).stdout
+    seen[state] = out
+assert len(set(seen.values())) == 4, seen
+"; then
+    echo "  ok    four states, four markers"
+else
+    echo "  FAIL  markers collide"; failures=$((failures + 1))
+fi
 
 # The rule lives in two files that are installed separately. They must agree.
 if python3 - "$REPO" <<'PY'

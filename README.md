@@ -85,7 +85,7 @@ Two different events, so two different sounds:
 
 | Sound | Hook | Fires when |
 |---|---|---|
-| `needs-you` — two rising notes | `Notification`, matching `permission_prompt`, `idle_prompt`, `agent_needs_input` | Claude is blocked on you: a permission prompt, a question, an idle wait |
+| `needs-you` — two rising notes | `Notification`, matching `permission_prompt`, `agent_needs_input`, `elicitation_dialog`, `elicitation_url_dialog` | Claude cannot go on without you: a permission, a question, a choice. Not `idle_prompt` — nothing is asked of you there |
 | `done` — one lower, quieter note | `Stop` | Claude finished responding, once per turn. Silent when the turn ended only to wait on a subagent or a background command |
 
 Playback is detached, so a slow audio device never delays a turn, and every
@@ -150,17 +150,24 @@ A colored marker in front of the terminal name, so a wall of identical `claude`
 tabs tells you which one wants you:
 
 ```
-🔴 my-project      your turn, or a session just opened
 🟢 my-project      Claude is working
+🔴 my-project      blocked on you: a permission, a question, a choice
+🟧 my-project      idle — nothing is asked of you, ready for the next request
 🟨 my-project      the session ended
 ```
 
+Red is spent on one thing: Claude cannot go on without you. Idle gets its own
+marker because *nothing is asked of you* and *answer me* are different
+situations, and a red that fires for both stops meaning anything. The two
+resting states are squares, so they part from red by shape as well as hue —
+orange alone reads as red from across a tab strip.
+
 Green also covers a turn that ended only to wait on background work — a
 subagent, a workflow, a `run_in_background` command, a scheduled wakeup. The
-session resumes on its own there, so it does not call you, and no sound plays.
-`Stop` carries `background_tasks` and `session_crons` for exactly this
-distinction. If it turns out the session really was idle, `idle_prompt` fires
-about a minute later and the marker goes red.
+session resumes on its own there, so it neither rests nor calls you, and no
+sound plays. `Stop` carries `background_tasks` and `session_crons` for exactly
+this distinction. If the session turns out to be idle after all, `idle_prompt`
+fires about a minute later and the marker settles to orange.
 
 Install it with `./install.sh --tab-state`, then `./install-vscode.sh`, then
 **start a new session** — one piece of it is read only at startup.
@@ -196,7 +203,7 @@ mixed list it often is not. `./install-vscode.sh --revert` undoes the setting.
 
 ### Changing the markers
 
-Set `CC_TAB_WORKING`, `CC_TAB_WAITING` or `CC_TAB_STOPPED` in the `env` block of
+Set `CC_TAB_WORKING`, `CC_TAB_BLOCKED`, `CC_TAB_IDLE` or `CC_TAB_STOPPED` in the `env` block of
 your `settings.json` — an emoji, an ASCII tag like `[..]`, a word like
 `(working)`, anything the tab renders. An empty value drops that marker.
 

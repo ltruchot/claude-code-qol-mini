@@ -14,7 +14,7 @@ contributeurs, les commits devront passer à l'anglais.
 |---|---|---|
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
-| Marqueur d'onglet | `hooks/tab-state.py` | 🔴 à toi · 🟢 travaille (ou parqué sur un sous-agent) · 🟨 session finie |
+| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟧 idle · 🟨 session finie |
 | Revue kaizen | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` s'arrête et te dit de lancer `/kaizen` ; la revue faite, il passe |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
@@ -178,7 +178,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 42 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 43 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -187,11 +187,12 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Fils ouverts
 
 - **Le format du marqueur reste à choisir.** Réglable sans toucher au code par `CC_TAB_WORKING`,
-  `CC_TAB_WAITING`, `CC_TAB_STOPPED` dans le bloc `env` — emoji, `[..]`, `(working)`. Les emoji
-  rendent correctement, c'est constaté ; reste à savoir ce qui se repère le mieux dans une liste.
-  Les couleurs, elles, sont tranchées : **rouge pour « à toi »**, la seule qui doive accrocher l'œil,
-  jaune carré pour « fini ». L'orange d'origine se confondait avec le rouge à distance, et le carré
-  distingue le repos de l'attente **par la forme** autant que par la teinte.
+  `CC_TAB_BLOCKED`, `CC_TAB_IDLE`, `CC_TAB_STOPPED` dans le bloc `env` — emoji, `[..]`, `(working)`.
+  Les emoji rendent correctement, c'est constaté ; reste à savoir ce qui se repère le mieux dans une
+  liste. Les couleurs sont tranchées : le **rouge ne sert qu'au blocage** — permission, question,
+  choix — sinon il ne veut plus rien dire. Les deux états de repos sont des **carrés**, orange pour
+  idle, jaune pour la session finie : l'orange seul se confond avec le rouge à distance, la forme
+  les sépare.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
 - **La branche `auto` ne fait plus rien, et c'est définitif.** Elle passait par
@@ -206,7 +207,7 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                      # 42 contrôles, sans rien installer
+./test.sh                      # 43 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

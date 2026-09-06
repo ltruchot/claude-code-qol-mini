@@ -8,19 +8,23 @@ import shutil
 
 # "sounds/play.sh" is the pre-Python shell player: kept here so that upgrading
 # from an older install removes its orphaned hook instead of leaving it behind.
+# "precompact-friction.py" is the pre-kaizen name of the same hook, kept for
+# the same reason.
 OURS = ("sounds/play.py", "sounds/play.sh",
-        "hooks/tab-state.py", "hooks/precompact-friction.py")
+        "hooks/tab-state.py", "hooks/precompact-kaizen.py",
+        "hooks/precompact-friction.py")
 EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
           "SessionEnd", "PreCompact")
 
 target = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR") or pathlib.Path.home() / ".claude")
 
 for relative in ("statusline-context.py", "hooks/tab-state.py",
-                 "hooks/precompact-friction.py", "sounds/play.py",
+                 "hooks/precompact-kaizen.py", "hooks/precompact-friction.py",
+                 "skills/kaizen/SKILL.md", "sounds/play.py",
                  "sounds/needs-you.wav", "sounds/done.wav"):
     (target / relative).unlink(missing_ok=True)
 shutil.rmtree(target / "state", ignore_errors=True)
-for directory in ("hooks", "sounds"):
+for directory in ("skills/kaizen", "skills", "hooks", "sounds"):
     try:
         (target / directory).rmdir()
     except OSError:

@@ -55,10 +55,12 @@ for case in "unknown-sound-name:missing file" ":no argument"; do
 done
 
 echo
-echo "Friction reviewer"
+echo "Kaizen reviewer"
 STATE="$(mktemp -d)"
-friction() {
-    printf '%s' "$2" | CLAUDE_CONFIG_DIR="$STATE" python3 "$REPO/hooks/precompact-friction.py" >/dev/null 2>&1
+WORK="$(mktemp -d)"
+HOOK="$REPO/hooks/precompact-kaizen.py"
+kaizen() {
+    printf '%s' "$2" | CLAUDE_CONFIG_DIR="$STATE" python3 "$HOOK" >/dev/null 2>&1
     local got=$?
     if [ "$got" -eq "$3" ]; then
         printf '  ok    %-34s exit %d\n' "$1" "$got"
@@ -67,31 +69,76 @@ friction() {
         failures=$((failures + 1))
     fi
 }
-friction "manual blocks without a review" '{"session_id":"t","trigger":"manual"}' 2
+manual="{\"session_id\":\"t\",\"trigger\":\"manual\",\"cwd\":\"$WORK\"}"
+kaizen "manual blocks without a review" "$manual" 2
 # The whole point: trying again proves nothing. Only a recorded review releases.
-friction "trying again still blocks"      '{"session_id":"t","trigger":"manual"}' 2
-touch "$STATE/state/friction-t.done"
-friction "a recorded review is honoured"  '{"session_id":"t","trigger":"manual"}' 0
-if [ -e "$STATE/state/friction-t.done" ]; then
+kaizen "trying again still blocks"      "$manual" 2
+
+# The skill releases the block from a plain shell, knowing only where it is.
+TOKEN="$(cd "$WORK" && CLAUDE_CONFIG_DIR="$STATE" python3 "$HOOK" --token)"
+(cd "$WORK" && CLAUDE_CONFIG_DIR="$STATE" python3 "$HOOK" --release >/dev/null)
+if [ -e "$TOKEN" ]; then
+    printf '  ok    %-34s %s\n' "--release writes the token" "$(basename "$TOKEN")"
+else
+    printf '  FAIL  %-34s no token at %s\n' "--release writes the token" "$TOKEN"
+    failures=$((failures + 1))
+fi
+kaizen "a recorded review is honoured"  "$manual" 0
+if [ -e "$TOKEN" ]; then
     printf '  FAIL  %-34s token survived\n' "the token is consumed"; failures=$((failures + 1))
 else
     printf '  ok    %-34s consumed\n' "the token is consumed"
 fi
-friction "and re-arms for the next one"   '{"session_id":"t","trigger":"manual"}' 2
-friction "auto never blocks"              '{"session_id":"u","trigger":"auto"}'   0
-friction "unreadable payload never blocks" 'not json'                             0
-if grep -q "friction-t.done" "$STATE/state/friction-review.md"; then
-    printf '  ok    %-34s named in brief\n' "the release command"
-else
-    printf '  FAIL  %-34s missing from brief\n' "the release command"; failures=$((failures + 1))
-fi
-printf '%s' '{"session_id":"v","trigger":"manual"}' | CLAUDE_CONFIG_DIR=/proc/impossible python3 "$REPO/hooks/precompact-friction.py" >/dev/null 2>&1
+kaizen "and re-arms for the next one"   "$manual" 2
+
+# One token per directory: a review done in one project must not release
+# another project's compaction.
+OTHER="$(mktemp -d)"
+(cd "$OTHER" && CLAUDE_CONFIG_DIR="$STATE" python3 "$HOOK" --release >/dev/null)
+kaizen "another directory does not release" "$manual" 2
+rm -rf "$OTHER"
+
+kaizen "auto never blocks" '{"session_id":"u","trigger":"auto"}' 0
+kaizen "unreadable payload never blocks" 'not json'              0
+# Captured, not piped into grep: with `pipefail` the pipeline would carry the
+# hook's deliberate exit 2 and the test would fail whatever grep found.
+msg="$(printf '%s' "$manual" | CLAUDE_CONFIG_DIR="$STATE" python3 "$HOOK" 2>&1 >/dev/null)"
+case "$msg" in
+    */kaizen*) printf '  ok    %-34s names /kaizen\n' "the message to the user" ;;
+    *) printf '  FAIL  %-34s said: %s\n' "the message to the user" "$msg"; failures=$((failures + 1)) ;;
+esac
+printf '%s' '{"session_id":"v","trigger":"manual"}' | CLAUDE_CONFIG_DIR=/proc/impossible python3 "$HOOK" >/dev/null 2>&1
 if [ $? -eq 0 ]; then
     printf '  ok    %-34s exit 0\n' "unwritable state never blocks"
 else
     printf '  FAIL  %-34s\n' "unwritable state never blocks"; failures=$((failures + 1))
 fi
-rm -rf "$STATE"
+rm -rf "$STATE" "$WORK"
+
+echo
+echo "Kaizen skill"
+# The skill has to name a runnable release command; the installer is the only
+# thing that knows the interpreter and the absolute path, so it substitutes it.
+INST="$(mktemp -d)"
+CLAUDE_CONFIG_DIR="$INST" python3 "$REPO/install.py" --no-sounds --no-statusline >/dev/null 2>&1
+SKILL="$INST/skills/kaizen/SKILL.md"
+if [ -f "$SKILL" ] && ! grep -q '{{' "$SKILL" && grep -q -- '--release' "$SKILL"; then
+    echo "  ok    release command substituted"
+else
+    echo "  FAIL  skill not installed with a release command"; failures=$((failures + 1))
+fi
+if grep -q 'precompact-kaizen.py' "$INST/settings.json" 2>/dev/null; then
+    echo "  ok    PreCompact hook registered"
+else
+    echo "  FAIL  PreCompact hook missing"; failures=$((failures + 1))
+fi
+CLAUDE_CONFIG_DIR="$INST" python3 "$REPO/uninstall.py" >/dev/null 2>&1
+if [ ! -e "$INST/skills/kaizen" ]; then
+    echo "  ok    uninstall removes the skill"
+else
+    echo "  FAIL  skill survived uninstall"; failures=$((failures + 1))
+fi
+rm -rf "$INST"
 
 echo
 echo "Tab state"

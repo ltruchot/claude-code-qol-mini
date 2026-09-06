@@ -15,7 +15,7 @@ contributeurs, les commits devront passer à l'anglais.
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88k/200k · mon-projet` |
 | Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
 | Marqueur d'onglet | `hooks/tab-state.py` | 🔴 à toi · 🟢 travaille · 🟨 session finie |
-| Revue des frictions | `hooks/precompact-friction.py` | `/compact` s'arrête, propose les leçons une par une, puis compacte |
+| Revue kaizen | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` s'arrête et te dit de lancer `/kaizen` ; la revue faite, il passe |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
 réglage éditeur par `install-vscode.py`, contrôles par `test.sh`.
@@ -76,18 +76,50 @@ de l'éditeur ne relance rien** : le serveur se reconnecte aux processus existan
 `/dev/tty` est inaccessible depuis un hook — d'où `terminalSequence`, qui fait écrire Claude Code à
 sa place.
 
-Et `stderr` est **à la fois** le canal de retour vers Claude et ce qui s'affiche à l'écran. La
-première version de `precompact-friction.py` y imprimait tout son brief : l'utilisateur recevait en
-pleine figure onze lignes de consignes qui ne lui étaient pas adressées, et les a lues comme une
-demande faite à lui.
+### Un hook `PreCompact` ne peut RIEN confier à Claude
 
-*À faire* : écrire le brief dans un fichier sous `state/` et ne mettre sur `stderr` qu'**une ligne**
-qui le nomme. *À ne pas faire* : oublier qu'un canal de retour machine est aussi une sortie humaine.
+C'est la contrainte qui a coûté le plus cher, parce qu'elle est invisible : le mécanisme *paraît*
+marcher.
 
-Et le brief ne doit proposer que **deux** destinations pour une leçon : le `CLAUDE.md` du dépôt
+La référence le dit mot pour mot : *« Exit with code 2 to block compaction. For a manual
+`/compact`, the stderr message is shown to the **user**. »* Le binaire le confirme — la fonction de
+blocage journalise puis `throw`, elle sort du chemin de compaction, elle ne rend pas la main à la
+conversation :
+
+```js
+n(`Compaction blocked by PreCompact hook: ${e.blockedBy}`,{level:"warn"});
+… throw new R0(`${z5e}: ${e.blockedBy}`)
+```
+
+Et il n'y a pas de porte dérobée : `PreCompact` n'accepte **pas** `additionalContext` (seuls
+`decision`/`reason` au niveau racine), et `PostCompact` n'a aucun contrôle de décision, son `stdout`
+n'allant qu'au journal de débogage.
+
+*Ce que ça a produit* : la première version imprimait tout son brief de revue sur `stderr` en
+supposant que Claude le lirait. **Claude n'en a jamais vu une ligne.** Chaque revue qui a semblé
+fonctionner était une revue que l'utilisateur avait redemandée dans son message suivant — le
+mécanisme n'a jamais tiré une seule fois de lui-même, et rien ne le signalait.
+
+*À faire* : traiter `stderr` comme ce qu'il est — **deux lignes adressées à l'humain**, qui nomment
+la commande à taper. Le travail vit dans une **skill** (`/kaizen`) que l'utilisateur invoque, jamais
+dans le hook.
+
+*À ne pas faire* : déduire d'un tableau d'exit codes que « exit 2 renvoie stderr à Claude ». C'est
+vrai pour `PreToolUse`, `Stop`, `PostToolUse` — **pas** pour `PreCompact`, `SessionStart`,
+`SubagentStart`, `PostModelSwitch`, où le tableau par événement dit explicitement *shows stderr to
+user only*. La colonne se lit par ligne.
+
+Et le brief ne doit proposer que deux destinations pour une leçon : le `CLAUDE.md` du dépôt
 concerné, ou une **skill** nommée. Jamais `~/.claude/CLAUDE.md` — une leçon trop générale pour un
 dépôt devient une skill, elle ne remonte pas d'un cran. C'est une consigne de Loïc, tranchée pendant
 la revue : un fichier utilisateur s'applique à tous les projets sans qu'on l'ait choisi pour chacun.
+
+### Le jeton de déblocage est indexé sur le RÉPERTOIRE, pas sur la session
+
+La skill doit pouvoir l'écrire depuis un shell ordinaire, et elle sait bien mieux **où** elle est que
+**qui** elle est. Deux conséquences gratuites : lancer `/kaizen` à la main arme le `/compact`
+suivant, et une revue faite dans un projet ne débloque pas la compaction d'un autre — collision
+réellement observée, deux sessions ayant écrasé le même fichier d'état.
 
 ### Les hooks s'enregistrent en forme exec, jamais en chaîne de shell
 
@@ -146,7 +178,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 31 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 33 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -162,15 +194,19 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
   distingue le repos de l'attente **par la forme** autant que par la teinte.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
-- **La branche `auto` de la revue des frictions n'a jamais été observée** — celle qui ne bloque pas
-  et passe par `additionalContext`. C'est le seul champ de `PreCompact` dont je n'ai pas prouvé
-  qu'il est honoré. Ses deux passages réels, tous deux sur `manual`, ont chacun révélé un défaut :
-  le `stderr` déversé à l'écran, puis le jeton qui ne prouvait rien.
+- **La branche `auto` ne fait plus rien, et c'est définitif.** Elle passait par
+  `additionalContext` ; la référence montre que `PreCompact` ne l'accepte pas, et que `PostCompact`
+  n'a aucun contrôle de décision. Il n'existe donc aucun moyen de déclencher une revue sur une
+  compaction automatique. Elle passe en silence.
+- **Le chemin `/kaizen` complet n'a pas encore tourné en vrai** : blocage vu, `--release` éprouvé
+  par `test.sh`, mais l'enchaînement `/compact` → `/kaizen` → `/compact` reste à observer dans une
+  session. Ses trois passages réels ont chacun révélé un défaut : le `stderr` déversé à l'écran, le
+  jeton qui ne prouvait rien, puis le `stderr` qui ne m'arrivait pas du tout.
 
 ## Tester
 
 ```bash
-./test.sh                      # 31 contrôles, sans rien installer
+./test.sh                      # 33 contrôles, sans rien installer
 ./install.sh --tab-state       # installe tout
 ./install-vscode.sh            # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                 # retire ce qu'on a posé, et rien d'autre

@@ -30,7 +30,7 @@ variable is unset. It **merges** into your `settings.json` rather than replacing
 it, and copies the previous file to `settings.json.bak-<timestamp>` first, so
 your own permissions, plugins and environment survive.
 
-Options: `--no-sounds`, `--no-statusline`, `--no-friction`, `--tab-state`.
+Options: `--no-sounds`, `--no-statusline`, `--no-kaizen`, `--tab-state`.
 
 To remove everything it added, and only that: `./uninstall.sh` (`.\\uninstall.ps1`).
 
@@ -210,48 +210,61 @@ The hook does not write to the terminal itself: hooks run without a controlling
 terminal, so they hand the sequence to Claude Code through `terminalSequence`,
 and it does the writing.
 
-## Capturing friction at compaction time
+## Kaizen: reviewing friction before it is summarised away
 
 Compaction is the moment a session's hard-won detail is about to be summarised
 away, which makes it exactly the right moment to ask what should outlive it.
 
-With this installed, `/compact` stops and hands the session a job: look back
-over what actually caused friction — a wrong assumption you had to undo, a
-command that failed for a non-obvious reason, a convention you got wrong — and
-turn each one into a **concrete amendment**, naming the file it would change:
-this project's `CLAUDE.md`, a skill, the documentation, or a comment at the spot
-where the trap bites. They come **one at a time**, and you answer yes or no.
-Only what you accept is written.
+With this installed, `/compact` stops with one line:
 
-When the review is over, the session releases the block and `/compact` goes
-through. The next one in the same session is armed again.
+```
+Compaction held back: this session's friction has not been reviewed.
+Run /kaizen to review it, then /compact again.
+```
+
+`/kaizen` is a skill. It looks back over what actually caused friction — a wrong
+assumption you had to undo, a command that failed for a non-obvious reason, a
+convention that was got wrong — and turns each one into a **concrete
+amendment**, naming the file it would change: this project's `CLAUDE.md`, a
+skill, the documentation, or a comment at the spot where the trap bites. Items
+come **one at a time**, and you answer yes or no. Only what you accept is
+written. Finding nothing is a valid outcome.
+
+The review then releases the block, and `/compact` goes through. The token is
+consumed as it is honoured, so the next compaction is armed again. You can also
+run `/kaizen` on its own at any time; doing so arms the next `/compact` too.
 
 Three design points that are not arbitrary:
 
-- **The review is not done inside the hook.** A hook cannot talk to you — it runs
-  with no controlling terminal and can show no dialog — and, more to the point,
-  the session about to be compacted still holds the whole context in mind. It is
-  a far better reviewer than a subagent re-reading a transcript from disk. So the
-  hook only blocks the compaction and hands the work back.
+- **The hook cannot run the review, and it does not try.** A `PreCompact` hook
+  has no way to hand Claude any work: `exit 2` blocks the compaction and shows
+  stderr *to the user*, which the
+  [reference](https://code.claude.com/docs/en/hooks) states outright and the
+  binary confirms by throwing out of the compaction path. An earlier version
+  printed a review brief on stderr and assumed Claude would act on it — Claude
+  never saw a word of it. So the hook prints two lines addressed to you, and the
+  work lives in a skill you invoke.
 - **Automatic compaction is never blocked.** It fires because the context is
-  full; refusing it could leave the session with nowhere to go. On `auto` the
-  hook asks for the review to happen *after* compaction instead, and lets it
-  proceed.
-- **The session releases the block, not the hook.** What lets `/compact` through
-  is a token file in `$CLAUDE_CONFIG_DIR/state/`, written by the session once the
-  review is over. An earlier version had the hook write it as it blocked, so the
-  next attempt would pass — which made the signal mean *you already tried once*
-  rather than *the review happened*, and a second `/compact` sailed past with
-  nothing reviewed. The token is consumed as it is honoured, so the next
-  compaction is armed again, and it is swept after seven days if a session ends
-  mid-review.
+  full; refusing it could leave the session with nowhere to go. And there is
+  nothing useful to do on that path either: `PreCompact` takes no
+  `additionalContext`, and `PostCompact`'s stdout reaches the debug log only. So
+  `auto` passes in silence.
+- **The token is keyed to the working directory, not the session.** The skill
+  has to write it from a plain shell, where it knows where it is far more
+  reliably than which session it is; and a review done in one project must not
+  release another project's compaction. An earlier version had the *hook* write
+  the token as it blocked, so the next attempt would pass — which made the
+  signal mean *you already tried once* rather than *the review happened*.
 
 Every failure path exits 0: an unreadable payload or an unwritable state
 directory must never make `/compact` unusable. If you want out of a review
-without doing it, create the token yourself — the brief in
-`state/friction-review.md` names the exact command.
+without doing it, write the token yourself:
 
-Skip it with `./install.sh --no-friction`.
+```bash
+python3 ~/.claude/hooks/precompact-kaizen.py --release
+```
+
+Skip the whole thing with `./install.sh --no-kaizen`.
 
 ## What gets written
 
@@ -260,8 +273,10 @@ $CLAUDE_CONFIG_DIR/
 ├── statusline-context.py
 ├── hooks/
 │   ├── tab-state.py
-│   └── precompact-friction.py
-├── state/                 release tokens for the friction reviewer
+│   └── precompact-kaizen.py
+├── skills/
+│   └── kaizen/SKILL.md    the review /kaizen runs
+├── state/                 release tokens, one per project directory
 ├── sounds/
 │   ├── play.py
 │   ├── needs-you.wav

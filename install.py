@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the status line, the sounds, the tab marker and the friction review.
+"""Install the status line, the sounds, the tab marker and the kaizen review.
 
 Python rather than shell, so that one implementation serves macOS, Linux, WSL
 and Windows alike; install.sh and install.ps1 are three-line wrappers around it.
@@ -9,7 +9,7 @@ shell string. That form runs the executable directly, with no shell in between,
 which is what makes an interpreter path containing spaces (the usual case on
 Windows: C:\\Program Files\\...) work the same everywhere.
 
-Usage: install.py [--no-statusline] [--no-sounds] [--tab-state] [--no-friction]
+Usage: install.py [--no-statusline] [--no-sounds] [--tab-state] [--no-kaizen]
 """
 import datetime
 import json
@@ -23,10 +23,19 @@ REPO = pathlib.Path(__file__).resolve().parent
 # Everything this installer owns, matched to prune stale hooks on re-run.
 # "sounds/play.sh" is the pre-Python shell player: kept here so that upgrading
 # from an older install removes its orphaned hook instead of leaving it behind.
+# "precompact-friction.py" is the pre-kaizen name of the same hook, kept for
+# the same reason.
 OURS = ("sounds/play.py", "sounds/play.sh",
-        "hooks/tab-state.py", "hooks/precompact-friction.py")
+        "hooks/tab-state.py", "hooks/precompact-kaizen.py",
+        "hooks/precompact-friction.py")
 EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
           "SessionEnd", "PreCompact")
+
+# Files we used to deliver under other names. Pruning their handlers is not
+# enough: the scripts themselves have to go, or an install leaves dead copies
+# in place next to the live ones.
+SUPERSEDED = ("hooks/precompact-friction.py", "sounds/play.sh",
+              "state/friction-review.md")
 
 
 def config_dir():
@@ -41,14 +50,16 @@ def main():
     if flags & {"-h", "--help"}:
         print(__doc__.strip())
         return
-    unknown = flags - {"--no-statusline", "--no-sounds", "--tab-state", "--no-friction"}
+    if "--no-friction" in flags:  # the option's name before the skill existed
+        flags = (flags - {"--no-friction"}) | {"--no-kaizen"}
+    unknown = flags - {"--no-statusline", "--no-sounds", "--tab-state", "--no-kaizen"}
     if unknown:
         sys.exit(f"unknown option: {', '.join(sorted(unknown))}")
 
     statusline = "--no-statusline" not in flags
     sounds = "--no-sounds" not in flags
     tabs = "--tab-state" in flags
-    friction = "--no-friction" not in flags
+    kaizen = "--no-kaizen" not in flags
 
     target = config_dir()
     # The interpreter running this installer is by definition present and
@@ -57,20 +68,34 @@ def main():
 
     print(f"Installing into {target}")
     target.mkdir(parents=True, exist_ok=True)
+    for relative in SUPERSEDED:
+        stale = target / relative
+        if stale.exists():
+            stale.unlink()
+            print(f"  removed       {stale}")
 
     if statusline:
         shutil.copy2(REPO / "statusline" / "context.py", target / "statusline-context.py")
         print(f"  status line   {target / 'statusline-context.py'}")
 
-    if tabs or friction:
+    if tabs or kaizen:
         (target / "hooks").mkdir(exist_ok=True)
     if tabs:
         shutil.copy2(REPO / "hooks" / "tab-state.py", target / "hooks" / "tab-state.py")
         print(f"  tab marker    {target / 'hooks' / 'tab-state.py'}")
-    if friction:
-        shutil.copy2(REPO / "hooks" / "precompact-friction.py",
-                     target / "hooks" / "precompact-friction.py")
-        print(f"  friction      {target / 'hooks' / 'precompact-friction.py'}")
+    if kaizen:
+        script = target / "hooks" / "precompact-kaizen.py"
+        shutil.copy2(REPO / "hooks" / "precompact-kaizen.py", script)
+        print(f"  kaizen hook   {script}")
+        # The skill has to name the release command exactly, and only the
+        # installer knows the interpreter and the absolute path it will have.
+        skill = target / "skills" / "kaizen" / "SKILL.md"
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        body = (REPO / "skills" / "kaizen" / "SKILL.md").read_text(encoding="utf-8")
+        skill.write_text(
+            body.replace("{{RELEASE_COMMAND}}", f'"{python}" "{script}" --release'),
+            encoding="utf-8")
+        print(f"  kaizen skill  {skill}")
 
     if sounds:
         (target / "sounds").mkdir(exist_ok=True)
@@ -153,8 +178,8 @@ def main():
         add("SessionStart", [hook("hooks/tab-state.py", "waiting")])
         add("UserPromptSubmit", [hook("hooks/tab-state.py", "working")])
         add("SessionEnd", [hook("hooks/tab-state.py", "stopped")])
-    if friction:
-        add("PreCompact", [hook("hooks/precompact-friction.py")])
+    if kaizen:
+        add("PreCompact", [hook("hooks/precompact-kaizen.py")])
 
     if hooks:
         data["hooks"] = hooks
@@ -168,6 +193,9 @@ def main():
     if tabs:
         print("Tab marker: run install-vscode.py to add the editor setting, then")
         print("start a NEW session -- the env block is read at startup.")
+    if kaizen:
+        print("Kaizen: /kaizen appears once Claude Code has restarted -- a skills")
+        print("directory that did not exist at startup is not watched.")
     print("Done. Restart Claude Code itself: settings.json is read at startup,")
     print("and reloading the editor window reconnects to existing terminals")
     print("rather than restarting them.")

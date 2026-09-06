@@ -42,9 +42,9 @@ fi
 
 echo
 echo "Player"
-bash -n "$REPO/sounds/play.sh" && echo "  ok    syntax"
+python3 -c "import ast,pathlib;ast.parse(pathlib.Path('$REPO/sounds/play.py').read_text())" && echo "  ok    parses"
 for case in "unknown-sound-name:missing file" ":no argument"; do
-    bash "$REPO/sounds/play.sh" "${case%%:*}" </dev/null
+    python3 "$REPO/sounds/play.py" "${case%%:*}" </dev/null
     code=$?
     if [ $code -eq 0 ]; then
         printf '  ok    %-34s exit 0\n' "${case##*:}"

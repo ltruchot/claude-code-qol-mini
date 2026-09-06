@@ -20,7 +20,7 @@ Opus 5 (1M context)  ▓▓▓▓▓▓▓▓▓▓  ! 250k/200k · my-project  
 ```bash
 git clone https://github.com/ltruchot/vscode-comfy-claude-config.git
 cd vscode-comfy-claude-config
-./install.sh
+./install.sh          # or: .\\install.ps1 on Windows PowerShell
 ```
 
 Then **restart Claude Code** — `settings.json` is only read at startup.
@@ -30,18 +30,23 @@ variable is unset. It **merges** into your `settings.json` rather than replacing
 it, and copies the previous file to `settings.json.bak-<timestamp>` first, so
 your own permissions, plugins and environment survive.
 
-Options: `./install.sh --no-sounds`, `./install.sh --no-statusline`.
+Options: `--no-sounds`, `--no-statusline`, `--no-friction`, `--tab-state`.
 
-To remove everything it added, and only that: `./uninstall.sh`.
+To remove everything it added, and only that: `./uninstall.sh` (`.\\uninstall.ps1`).
 
 ### Requirements
 
 - **python3** — runs the status line and builds the sounds. Already present on
   most systems; `xcode-select --install` on macOS, `sudo apt install python3` on
   Debian and Ubuntu.
-- **An audio player**, only if you want sounds. macOS has `afplay` built in. On
-  Linux and WSL any one of `paplay`, `pw-play`, `aplay`, `ffplay`, `mpv` or
+- **An audio player**, only if you want sounds. Windows needs nothing: the
+  player uses `winsound` from the standard library. macOS has `afplay` built in.
+  On Linux and WSL any one of `paplay`, `pw-play`, `aplay`, `ffplay`, `mpv` or
   `play` will do — you almost certainly have one already.
+
+No shell is required for the hooks themselves: they are registered in exec form,
+naming the interpreter and its arguments directly, so nothing depends on Git
+Bash being installed or on how a path with spaces would be quoted.
 
 Tested on Linux, macOS and WSL2.
 
@@ -225,7 +230,7 @@ $CLAUDE_CONFIG_DIR/
 │   └── precompact-friction.py
 ├── state/                 guard files for the friction reviewer
 ├── sounds/
-│   ├── play.sh
+│   ├── play.py
 │   ├── needs-you.wav
 │   └── done.wav
 └── settings.json          merged: statusLine, and the hooks for

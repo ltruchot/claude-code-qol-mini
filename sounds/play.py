@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Play a short notification sound for a Claude Code hook.
+
+Python rather than a shell script, because hooks must work where no POSIX shell
+does: on Windows without Git Bash, Claude Code runs hook commands through
+PowerShell, and `bash play.sh` would simply fail. Python is already required by
+the status line, so it costs no new dependency and removes the shell from the
+path entirely.
+
+Two properties matter more than the sound itself:
+
+  Never block. On WSLg the PulseAudio RDP sink can take ~2s to wake from
+  SUSPENDED; a hook that waited on that would delay every turn. Playback is
+  spawned detached and this returns at once.
+
+  Never fail. A missing file, no audio server, or no player at all must not
+  disturb the session, so every path exits 0.
+
+Usage: play.py <sound-name>
+"""
+import os
+import pathlib
+import subprocess
+import sys
+
+# Any of these is accepted, so replacing a sound is a matter of dropping a file
+# in. Which players read which format differs, hence the ordering below.
+EXTENSIONS = ("wav", "ogg", "flac", "mp3", "m4a", "aiff", "aif")
+
+# Player, arguments before the file. Ordered by how likely they are to exist.
+POSIX_PLAYERS = (
+    ("paplay", ()),                                            # PulseAudio, incl. WSLg
+    ("pw-play", ()),                                           # PipeWire
+    ("aplay", ("-q",)),                                        # ALSA, WAV only
+    ("ffplay", ("-nodisp", "-autoexit", "-loglevel", "quiet")),
+    ("mpv", ("--really-quiet", "--no-video")),
+    ("play", ("-q",)),                                         # sox
+)
+RAW_ONLY = {"aplay"}  # cannot decode compressed formats
+
+
+def find_sound(name):
+    root = pathlib.Path(
+        os.environ.get("CLAUDE_CONFIG_DIR", pathlib.Path.home() / ".claude")
+    ) / "sounds"
+    for extension in EXTENSIONS:
+        candidate = root / f"{name}.{extension}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def spawn(command):
+    """Start a player without waiting for it and without a console window."""
+    kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+              "stdin": subprocess.DEVNULL}
+    if os.name == "nt":
+        kwargs["creationflags"] = 0x00000008 | 0x08000000  # DETACHED | NO_WINDOW
+    else:
+        kwargs["start_new_session"] = True
+    subprocess.Popen(command, **kwargs)
+
+
+def play(sound):
+    if os.name == "nt":
+        # winsound is in the standard library and plays asynchronously by
+        # itself, so nothing external is needed. It handles WAV only.
+        if sound.suffix.lower() == ".wav":
+            import winsound
+
+            winsound.PlaySound(str(sound), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            return
+        spawn(["powershell", "-NoProfile", "-Command",
+               f"(New-Object Media.SoundPlayer '{sound}').Play()"])
+        return
+
+    if sys.platform == "darwin":
+        spawn(["afplay", str(sound)])  # reads every format listed above
+        return
+
+    compressed = sound.suffix.lower().lstrip(".") not in ("wav", "ogg", "flac")
+    for player, arguments in POSIX_PLAYERS:
+        if compressed and player in RAW_ONLY:
+            continue
+        from shutil import which
+
+        if which(player):
+            spawn([player, *arguments, str(sound)])
+            return
+
+
+def main():
+    if len(sys.argv) < 2:
+        return
+    sound = find_sound(sys.argv[1])
+    if sound is None:
+        return
+    try:
+        play(sound)
+    except Exception:
+        pass  # a sound is never worth disturbing the session for
+
+
+main()

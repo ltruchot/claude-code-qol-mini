@@ -89,18 +89,6 @@ concerné, ou une **skill** nommée. Jamais `~/.claude/CLAUDE.md` — une leçon
 dépôt devient une skill, elle ne remonte pas d'un cran. C'est une consigne de Loïc, tranchée pendant
 la revue : un fichier utilisateur s'applique à tous les projets sans qu'on l'ait choisi pour chacun.
 
-### Un jeton de déblocage doit être posé par CELUI QUI FAIT le travail
-
-La première version de `precompact-friction.py` écrivait son jeton **elle-même, au moment de
-bloquer**, pour que la tentative suivante passe. Le signal voulait donc dire « tu as déjà essayé une
-fois », pas « la revue a eu lieu » : un deuxième `/compact` passait sans que rien n'ait été revu, et
-c'est exactement ce qui a été reproché.
-
-*À faire* : faire poser le jeton par la session, à la fin de la revue, et le consommer en l'honorant
-— ce qui réarme le suivant. Le brief nomme la commande exacte, jeton et `session_id` compris.
-*À ne pas faire* : confondre « la condition a été rencontrée » avec « la condition est remplie ».
-Un compteur de tentatives n'est pas une preuve de travail.
-
 ### Les hooks s'enregistrent en forme exec, jamais en chaîne de shell
 
 `{"type": "command", "command": <interpréteur>, "args": [<script>, <arg>]}`.

@@ -150,6 +150,9 @@ if sounds or tabs:
     hooks["Stop"] = [{"hooks": finished}]
 
     if tabs:
+        # Claim the tab as soon as the session exists: with ${sequence}
+        # configured, a session that emitted nothing yet shows no marker.
+        hooks["SessionStart"] = [{"hooks": [tab("waiting")]}]
         hooks["UserPromptSubmit"] = [{"hooks": [tab("working")]}]
         hooks["SessionEnd"] = [{"hooks": [tab("stopped")]}]
 

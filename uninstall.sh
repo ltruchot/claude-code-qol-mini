@@ -35,7 +35,7 @@ shutil.copy2(settings, settings.with_name(f"settings.json.bak-{stamp}"))
 
 data.pop("statusLine", None)
 hooks = data.get("hooks", {})
-for event in ("Notification", "Stop", "UserPromptSubmit", "SessionEnd", "PreCompact"):
+for event in ("Notification", "Stop", "UserPromptSubmit", "SessionStart", "SessionEnd", "PreCompact"):
     entries = [
         group for group in hooks.get(event, [])
         if not any(

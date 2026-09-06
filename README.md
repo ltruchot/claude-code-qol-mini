@@ -146,6 +146,7 @@ A coloured marker in front of the terminal name, so a wall of identical `claude`
 tabs tells you which one wants you:
 
 ```
+🟠 my-project      a session just opened, waiting for you
 🟢 my-project      Claude is working
 🟠 my-project      your turn: it finished, or it is asking for something
 🔴 my-project      the session ended
@@ -162,7 +163,9 @@ It finds every `settings.json` that applies — the local install for Code, Code
 Insiders, VSCodium and Cursor, the machine-scope file a remote session uses
 (`~/.vscode-server/data/Machine/`), and, under WSL, the client's own user
 settings on the Windows side, since that is where a non-machine setting is read
-from. Then reload the window.
+from. Then reload the window **and restart Claude Code itself** — reloading the
+editor reconnects to existing terminals rather than restarting them, so a
+running session keeps the settings it started with.
 
 The file is **JSONC**: VS Code allows comments and trailing commas in it, and
 parsing then re-serialising would delete yours without a word. So the key is
@@ -236,7 +239,7 @@ $CLAUDE_CONFIG_DIR/
 │   └── done.wav
 └── settings.json          merged: statusLine, and the hooks for
                            Notification, Stop, UserPromptSubmit,
-                           SessionEnd and PreCompact
+                           SessionStart, SessionEnd and PreCompact
 ```
 
 ## References

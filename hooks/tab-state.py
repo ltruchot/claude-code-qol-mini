@@ -97,6 +97,14 @@ def main():
     except ValueError:
         data = {}
 
+    # Only the main thread paints green. A subagent runs its own loop and fires
+    # its own PostToolBatch, and those keep landing after the orchestrator's
+    # turn is over: measured, a Stop that rang the end-of-turn sound was
+    # followed seconds later by a subagent batch that put the tab back to
+    # green. Red is left alone -- a subagent asking for input is a real block.
+    if state == "working" and (data.get("agent_id") or data.get("agent_type")):
+        return
+
     # Parked on a subagent or a background command is not idle: the session
     # resumes on its own, so it stays green rather than going to rest.
     if state == "idle" and paused_on_background(data):

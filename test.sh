@@ -319,6 +319,28 @@ parked "a scheduled wakeup stays green" \
        '{"cwd":"/tmp/demo","background_tasks":[],"session_crons":[{"id":"c1","schedule":"* * * * *"}]}' GREEN
 parked "a payload without the arrays"  '{"cwd":"/tmp/demo"}' YELLOW
 
+# A subagent fires PostToolBatch on its own loop, and those land after the
+# orchestrator's turn is over. Green from a subagent would undo the Stop that
+# just rang. Red is left alone: a subagent asking for input is a real block.
+sidechain() {
+    local label="$1" state="$2" payload="$3" want="$4" out
+    out="$(printf '%s' "$payload" | CC_TAB_WORKING='GREEN' CC_TAB_BLOCKED='RED' \
+           python3 "$REPO/hooks/tab-state.py" "$state")"
+    if [ "$want" = "silent" ] && [ -z "$out" ]; then
+        printf '  ok    %-34s nothing\n' "$label"
+    elif [ "$want" != "silent" ] && case "$out" in *"$want"*) true ;; *) false ;; esac; then
+        printf '  ok    %-34s %s\n' "$label" "$want"
+    else
+        printf '  FAIL  %-34s wanted %s, got [%s]\n' "$label" "$want" "$out"
+        failures=$((failures + 1))
+    fi
+}
+SUB='{"cwd":"/tmp/demo","hook_event_name":"PostToolBatch","agent_id":"a1","agent_type":"Explore"}'
+sidechain "a subagent paints no green" working "$SUB" silent
+sidechain "a subagent still paints red"  blocked "$SUB" RED
+sidechain "the main thread paints green" working \
+          '{"cwd":"/tmp/demo","hook_event_name":"PostToolBatch"}' GREEN
+
 # Distinct markers, or the tab strip stops carrying information.
 if python3 -c "
 import os, subprocess, sys

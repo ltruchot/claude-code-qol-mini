@@ -270,7 +270,9 @@ Green is reclaimed at every moment work resumes, not only when you submit a
 prompt. No event fires when the model starts thinking — the documented cycle is
 `PreToolUse`, the tool, `PostToolUse`, `PostToolBatch`, then the model call — so
 the marker rides `PostToolBatch`, which lands just before that call, and
-`SubagentStop`. Without them the tab stays red from the permission prompt or the
+`SubagentStop`. Only the main thread turns the tab green: a subagent fires
+`PostToolBatch` on its own loop, and those land after the orchestrator has
+already finished and gone yellow. Without them the tab stays red from the permission prompt or the
 question you just answered, through however long the answer takes.
 
 Green covers a compaction too. No turn brackets a `/compact`, so nothing else

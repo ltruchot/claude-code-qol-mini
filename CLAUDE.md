@@ -184,6 +184,17 @@ the hook dozens of times. Each run is a bare `json`/`os`/`sys` import and one
 line of output. Re-asserting a title that is already set costs nothing on
 screen.
 
+*And it fires inside subagents.* Measured with a probe on the installed hook,
+three sessions at once: a subagent's own loop fires `PostToolBatch` carrying
+`agent_id`/`agent_type`, and those keep landing **after** the orchestrator's
+`Stop`. The tab rang the end-of-turn sound, went yellow, then went back to
+green seconds later. Only the main thread paints green now; red is left alone,
+because a subagent asking for input is a real block on you.
+
+The same probe showed the in-flight registry lagging: a `SubagentStop` payload
+listed its own subagent as `status: "running"`. Do not treat
+`background_tasks` as exact at the instant a task settles.
+
 ### The release token is keyed on the DIRECTORY, not the session
 
 The skill has to write it from a plain shell, and it knows **where** it is far better
@@ -270,7 +281,7 @@ because `0k/200k` reads as the word "Ok" before it reads as a count.
 **Verified on this machine** (WSL2 + Cursor installed on the Windows side): the
 install → reinstall with different options → uninstall cycle, preserving `model`,
 `permissions`, `enabledPlugins`, `autoMode` and hooks written by the user; the purge
-of disabled options; the tab marker **seen on screen**; the 69 checks in `test.sh`.
+of disabled options; the tab marker **seen on screen**; the 72 checks in `test.sh`.
 
 **Never run on a real machine**: the **macOS** and **native Windows** paths —
 `afplay`, `winsound`, and each editor's settings location. Written from documented
@@ -309,7 +320,7 @@ tested.
 ## Testing
 
 ```bash
-./test.sh                           # 69 checks, installs nothing
+./test.sh                           # 72 checks, installs nothing
 ./install.sh --tab-state --replace  # without --replace, an edited file makes it refuse
 ./install-vscode.sh                 # sets the editor, then start a NEW session
 ./uninstall.sh                      # removes what we laid down, and nothing else

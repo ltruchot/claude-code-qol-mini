@@ -223,12 +223,20 @@ Run /kaizen to review it, then /compact again.
 ```
 
 `/kaizen` is a skill. It looks back over what actually caused friction — a wrong
-assumption you had to undo, a command that failed for a non-obvious reason, a
-convention that was got wrong — and turns each one into a **concrete
-amendment**, naming the file it would change: this project's `CLAUDE.md`, a
-skill, the documentation, or a comment at the spot where the trap bites. Items
-come **one at a time**, and you answer yes or no. Only what you accept is
-written. Finding nothing is a valid outcome.
+assumption undone, a command that failed for a non-obvious reason, a convention
+got wrong — and turns each one into a **concrete amendment**, naming the file it
+would change: this project's `CLAUDE.md`, a skill, the documentation, or a
+comment at the spot where the trap bites. Items come **one at a time**, and you
+answer yes or no. Only what you accept is written.
+
+The bar is deliberately high, because a bad amendment costs more than no
+amendment: it is re-read on every future session, skimmed, and misapplied. A
+finding must have cost something in this session, carry its evidence, and reduce
+to a deterministic instruction stated in two to five lines. It is written in the
+target file's own language and style, after reading that file in full — so it
+lands in the section that already covers the subject, sharpens the line that
+half-covered it, or is dropped because the file said it already. Finding nothing
+is the normal outcome.
 
 The review then releases the block, and `/compact` goes through. The token is
 consumed as it is honoured, so the next compaction is armed again. You can also

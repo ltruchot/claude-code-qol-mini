@@ -1,62 +1,92 @@
 ---
 name: kaizen
-description: Review the friction in the current session and turn it into concrete amendments to CLAUDE.md, a skill, the documentation or a code comment. Use before compacting, or whenever a session has taught something worth keeping. Also releases the /compact block set by the PreCompact hook.
+description: Review this session's friction and turn each real finding into one precise amendment to a CLAUDE.md, a skill, the docs or a code comment. Use before compacting, or after a session that taught something. Also releases the /compact block set by the PreCompact hook.
 ---
 
-# Kaizen — turn this session's friction into something durable
+# Kaizen
 
-A session ends up knowing things nobody wrote down: an assumption that had to be
-undone, a command that failed for a non-obvious reason, a tool that behaved
-differently than its documentation. Compaction summarises all of it away. This
-review catches it first.
+Turn friction from this session into instructions that outlive it.
 
-You are the right reviewer for this because you still hold the whole context. Do
-not delegate it to a subagent reading the transcript from disk.
+You are the reviewer because you still hold the context. Do not delegate to a
+subagent reading the transcript.
 
-## 1. Look back over this session
+Expect few findings. Usually none. A finding is a eureka: obvious once stated.
+Anything less is a false one, and a false one costs more than it saves — it is
+read on every future session, skimmed, misread, or silently ignored, and it
+makes the file around it harder to trust.
 
-List what actually caused friction:
+## 1. The bar
 
-- a wrong assumption you had to undo
-- a command that failed for a reason that was not obvious
-- a convention of this repo you got wrong
-- a tool, API or runtime that behaved differently than expected
-- a measurement that contradicted what the documentation said
+A finding qualifies only if all four hold:
 
-Ignore anything already written down, and anything that is plain conversation
-rather than a lesson. If the session was smooth, say so and skip to step 4 — an
-empty review is a legitimate outcome, and inventing a lesson to look useful is
-worse than recording none.
+1. It cost something **in this session**: a wrong turn taken, a command that
+   failed, a rule broken, a belief contradicted by a measurement.
+2. You can cite the evidence — what was done, what happened.
+3. The fix is a deterministic instruction, not advice.
+4. Someone who follows it acts differently from someone who does not.
 
-## 2. Turn each one into a concrete amendment
+Reject on sight:
 
-Not a remark: an edit the user can picture. Name the file and say what text you
-would add or change.
+- good practice that is true in any repo
+- anything the target file already implies
+- anything you cannot state in three lines — unclear now means unusable later
+- anything whose only effect is to make the file longer
 
-| Where | For what |
+No finding is the normal outcome. Say so plainly and go to step 5.
+
+## 2. Pick the target, then read it in full
+
+| Target | For |
 |---|---|
 | this project's `CLAUDE.md` | a constraint specific to this repo |
-| a skill — name it, and say whether it exists or you would create it | a lesson too general for one repo |
-| the documentation — README, usage notes | something a user of the project needs |
-| a comment in the code | a trap that is invisible at the point it bites |
+| a skill — name it, say if it exists | a lesson that outlives this repo |
+| `README` / docs | something a user of the project needs |
+| a code comment | a trap invisible at the point it bites |
 
-Never the user-level `~/.claude/CLAUDE.md`. A lesson too general for one repo
-becomes a skill; it does not move up a level. A user-level file applies to every
-project without having been chosen for any of them.
+Never `~/.claude/CLAUDE.md`. A lesson too general for one repo becomes a skill;
+it does not move up a level.
 
-## 3. Propose them one at a time
+Open the file. All of it. Then decide:
 
-For each item, in one short block:
+- **already stated** → drop the finding
+- **stated nearby, less precisely** → edit that line; do not add one
+- **contradicted** → that is the finding: report the conflict, propose which
+  side wins
+- **belongs to an existing section** → put it there; do not open a new one
 
-- **what happened**, with the concrete evidence from this session
-- **the amendment**, naming the file and quoting the text you would write
-- **what future friction it prevents**
+## 3. Write it in the file's own terms
 
-Then stop and wait. The user answers yes or no. Write only what they accept,
-where they agreed to it, and write nothing before they have answered. Do not
-batch the list into a single question.
+- Same language as the file. A French `CLAUDE.md` gets French.
+- Same vocabulary, same headings, same person and tense, same conventions.
+- Telegraphic. No metaphor, no narrative, no preamble, no "note that".
+- State the trigger, then the action, in the imperative.
+- Two to five lines. Longer means the point is not found yet.
+- Net length counts. If the amendment makes an older line redundant, delete that
+  line in the same edit.
 
-## 4. Release the block
+Shape: **when X — do Y, not Z.** Add the evidence only where it is what makes Y
+credible.
+
+## 4. Propose one at a time
+
+Per item, three short blocks, nothing else:
+
+- **Cost** — what happened here, one or two lines
+- **Amendment** — file, section, and the exact text, already written in the
+  target's language and style
+- **Trigger** — the situation in which someone reads it and acts
+
+Then stop and wait. The user answers yes or no. Write only what is accepted.
+Never batch items into one question.
+
+After each accepted write, re-read the section: it must read as one voice, with
+no line now saying twice what another says once.
+
+When the last item is settled, re-read the whole file once. If the additions
+made it repetitive or self-contradictory, that is itself an item — propose the
+cut the same way.
+
+## 5. Release
 
 When the review is over — including when it found nothing — run:
 
@@ -64,5 +94,5 @@ When the review is over — including when it found nothing — run:
 {{RELEASE_COMMAND}}
 ```
 
-Then tell the user that `/compact` will go through. The token is consumed as it
-is honoured, so the compaction after that is reviewed too.
+Then tell the user `/compact` will go through. The token is consumed as it is
+honoured, so the next compaction is reviewed too.

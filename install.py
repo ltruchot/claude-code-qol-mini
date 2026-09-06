@@ -48,7 +48,7 @@ OURS = ("sounds/play.py", "sounds/play.sh",
         "hooks/tab-state.py", "hooks/precompact-kaizen.py",
         "hooks/precompact-friction.py")
 EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
-          "SessionEnd", "PreCompact")
+          "SessionEnd", "PreCompact", "PostCompact")
 
 # Files we used to deliver under other names. Pruning their handlers is not
 # enough: the scripts themselves have to go, or an install leaves dead copies
@@ -319,8 +319,24 @@ def settings_for(chosen, target, python, data):
         add("UserPromptSubmit", [hook("hooks/tab-state.py", "working")])
     # SessionEnd stays in EVENTS but gets no handler: an older install put a
     # "stopped" marker there, and the purge above is what removes it.
+
+    # Compaction is a long stretch of work with no turn around it, so nothing
+    # else moves the marker: without these two the tab sits idle for minutes
+    # while the model is busy. Only `manual` gets the resting marker and the
+    # sound -- an automatic compaction happens mid-turn and the work goes on
+    # after it, so ringing there would be the beep for nothing.
     if chosen["kaizen"]:
-        add("PreCompact", [hook("hooks/precompact-kaizen.py")])
+        # One hook owns the PreCompact marker, and it is this one: hooks on an
+        # event run concurrently, and it alone knows whether the compaction is
+        # going to happen or be held back.
+        add("PreCompact", [hook("hooks/precompact-kaizen.py",
+                                *(["--marker", str(target / "hooks/tab-state.py")]
+                                  if tabs else []))])
+    elif tabs:
+        add("PreCompact", [hook("hooks/tab-state.py", "working")])
+    add("PostCompact", ([hook("sounds/play.py", "done")] if sounds else []) +
+                       ([hook("hooks/tab-state.py", "idle")] if tabs else []),
+        "manual")
 
     if hooks:
         data["hooks"] = hooks

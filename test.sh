@@ -377,6 +377,107 @@ else
 fi
 
 echo
+echo "Compaction is busy time"
+# Nothing else moves the marker while a compaction runs: no turn brackets it,
+# so without these the tab sits idle for minutes while the model works.
+if CLAUDE_CONFIG_DIR="$(mktemp -d)" python3 -c "
+import json, os, pathlib, subprocess, sys
+target = pathlib.Path(os.environ['CLAUDE_CONFIG_DIR'])
+subprocess.run([sys.executable, '$REPO/install.py', '--tab-state'],
+               stdout=subprocess.DEVNULL, stdin=subprocess.DEVNULL, check=True)
+hooks = json.loads((target / 'settings.json').read_text())['hooks']
+
+# One hook owns the PreCompact marker, and it is the kaizen one: hooks on an
+# event run concurrently, so two of them emitting a sequence would race.
+pre = hooks['PreCompact']
+assert len(pre) == 1 and len(pre[0]['hooks']) == 1, pre
+args = pre[0]['hooks'][0]['args']
+assert args[0].endswith('precompact-kaizen.py'), args
+assert args[1:3] == ['--marker', str(target / 'hooks' / 'tab-state.py')], args
+
+# The end of a manual compaction only: an automatic one fires mid-turn, and
+# the work goes on after it.
+post = hooks['PostCompact']
+assert len(post) == 1 and post[0]['matcher'] == 'manual', post
+ran = [h['args'][0].rsplit('/', 1)[-1] for h in post[0]['hooks']]
+assert ran == ['play.py', 'tab-state.py'], ran
+assert post[0]['hooks'][1]['args'][1] == 'idle', post
+"; then
+    echo "  ok    PreCompact and PostCompact are wired"
+else
+    echo "  FAIL  compaction wiring"; failures=$((failures + 1))
+fi
+
+# Leave kaizen out and PreCompact falls back to tab-state, which is then the
+# only hook on the event.
+if CLAUDE_CONFIG_DIR="$(mktemp -d)" python3 -c "
+import json, os, pathlib, subprocess, sys
+target = pathlib.Path(os.environ['CLAUDE_CONFIG_DIR'])
+subprocess.run([sys.executable, '$REPO/install.py', '--no-kaizen', '--tab-state'],
+               stdout=subprocess.DEVNULL, stdin=subprocess.DEVNULL, check=True)
+hooks = json.loads((target / 'settings.json').read_text())['hooks']
+args = hooks['PreCompact'][0]['hooks'][0]['args']
+assert args[0].endswith('tab-state.py') and args[1] == 'working', args
+"; then
+    echo "  ok    no kaizen, tab-state takes PreCompact"
+else
+    echo "  FAIL  PreCompact fallback"; failures=$((failures + 1))
+fi
+
+# Green while it runs, red when it is held back: the marker follows the
+# decision, and the decision is made in this one script.
+KZ="$REPO/hooks/precompact-kaizen.py"
+TS="$REPO/hooks/tab-state.py"
+STATE="$(mktemp -d)"
+PAYLOAD='{"hook_event_name":"PreCompact","trigger":"manual","cwd":"/tmp/demo"}'
+compaction() {
+    local label="$1" payload="$2" want_exit="$3" want="$4" out code
+    out="$(printf '%s' "$payload" | CLAUDE_CONFIG_DIR="$STATE" \
+           CC_TAB_WORKING='GREEN' CC_TAB_BLOCKED='RED' \
+           python3 "$KZ" --marker "$TS" 2>/dev/null)"
+    code=$?
+    case "$out" in
+        *"$want"*) [ "$code" = "$want_exit" ] && ok=1 || ok=0 ;;
+        *) ok=0 ;;
+    esac
+    if [ "$ok" = 1 ]; then
+        printf '  ok    %-34s exit %s, %s\n' "$label" "$code" "$want"
+    else
+        printf '  FAIL  %-34s wanted exit %s and %s, got exit %s and %s\n' \
+               "$label" "$want_exit" "$want" "$code" "$out"
+        failures=$((failures + 1))
+    fi
+}
+compaction "held back, so blocked" "$PAYLOAD" 2 RED
+CLAUDE_CONFIG_DIR="$STATE" python3 -c "
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('kz', '$KZ')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m.STATE_DIR.mkdir(parents=True, exist_ok=True)
+m.token_for('/tmp/demo').touch()
+"
+compaction "token honored, so working" "$PAYLOAD" 0 GREEN
+compaction "automatic, so working" '{"trigger":"auto","cwd":"/tmp/demo"}' 0 GREEN
+
+out="$(printf '%s' "$PAYLOAD" | CLAUDE_CONFIG_DIR="$STATE" python3 "$KZ" 2>/dev/null)"
+if [ -z "$out" ]; then
+    echo "  ok    no --marker, no sequence"
+else
+    echo "  FAIL  a sequence without --marker: $out"; failures=$((failures + 1))
+fi
+
+# No marker is worth a refused compaction, so a broken path stays silent.
+out="$(printf '%s' "$PAYLOAD" | CLAUDE_CONFIG_DIR="$STATE" \
+       python3 "$KZ" --marker /nowhere/tab-state.py 2>/dev/null)"
+code=$?
+if [ "$code" = 2 ] && [ -z "$out" ]; then
+    echo "  ok    an unreachable marker stays silent"
+else
+    echo "  FAIL  broken marker path: exit $code, out $out"; failures=$((failures + 1))
+fi
+rm -rf "$STATE"
+
+echo
 if [ $failures -eq 0 ]; then
     echo "All checks passed."
 else

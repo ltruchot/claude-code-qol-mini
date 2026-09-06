@@ -173,7 +173,7 @@ Two different events, so two different sounds:
 | Sound | Hook | Fires when |
 |---|---|---|
 | `needs-you` — two rising notes | `Notification`, matching `permission_prompt`, `agent_needs_input`, `elicitation_dialog`, `elicitation_url_dialog` | Claude cannot go on without you: a permission, a question, a choice. Not `idle_prompt` — nothing is asked of you there |
-| `done` — one lower, quieter note | `Stop` | Claude finished responding, once per turn. Silent when the turn ended only to wait on a subagent or a background command |
+| `done` — one lower, quieter note | `Stop`, and `PostCompact` matching `manual` | Claude finished responding, once per turn. Silent when the turn ended only to wait on a subagent or a background command. A `/compact` can run for minutes with nothing on screen, so the end of one rings too |
 
 Playback is detached, so a slow audio device never delays a turn, and every
 failure path exits 0: a missing file or a dead audio server cannot disturb the
@@ -227,9 +227,8 @@ rather tune them than replace them.
 
 ### Turning the sounds off
 
-`./uninstall.sh` removes everything; to keep the status line and drop only
-the sounds, delete the `Notification` and `Stop` entries from the `hooks` block
-of your `settings.json`.
+`./install.sh --no-sounds` keeps the rest and drops them; `./uninstall.sh`
+removes everything.
 
 ## The terminal tab marker (VS Code and Cursor)
 
@@ -265,7 +264,14 @@ subagent, a workflow, a `run_in_background` command, a scheduled wakeup. The
 session resumes on its own there, so it neither rests nor calls you, and no
 sound plays. `Stop` carries `background_tasks` and `session_crons` for exactly
 this distinction. If the session turns out to be idle after all, `idle_prompt`
-fires about a minute later and the marker settles to orange.
+fires about a minute later and the marker settles to yellow.
+
+Green covers a compaction too. No turn brackets a `/compact`, so nothing else
+moves the marker and the tab would sit idle for however long it takes:
+`PreCompact` turns it green, `PostCompact` puts it back to yellow and rings the
+`done` sound. A compaction held back by the friction review goes red instead —
+nothing runs until you answer. Only a manual compaction ends in yellow; an
+automatic one fires mid-turn and the work goes on after it.
 
 Install it with `./install.sh --tab-state`, then `./install-vscode.sh`, then
 **start a new session** — one piece of it is read only at startup.
@@ -403,7 +409,7 @@ $CLAUDE_CONFIG_DIR/
 │   └── done.wav
 └── settings.json          merged: statusLine, and the hooks for
                            Notification, Stop, UserPromptSubmit,
-                           SessionStart and PreCompact
+                           SessionStart, PreCompact and PostCompact
 ```
 
 ## References

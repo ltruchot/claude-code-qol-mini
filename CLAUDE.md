@@ -18,8 +18,8 @@ contributeurs, les commits devront passer à l'anglais.
 | Fonction | Fichier | Ce qu'on voit |
 |---|---|---|
 | Status line de contexte | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88/200k · mon-projet` |
-| Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini |
-| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (ou parqué sur un sous-agent) · 🔴 bloqué sur toi · 🟡 idle |
+| Sons de notification | `sounds/play.py`, `sounds/generate.py` | deux notes montantes quand Claude t'attend, une note basse quand il a fini — et à la fin d'un `/compact` |
+| Marqueur d'onglet | `hooks/tab-state.py` | 🟢 travaille (sous-agent ou compaction compris) · 🔴 bloqué sur toi · 🟡 idle |
 | Revue kaizen | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` s'arrête et te dit de lancer `/kaizen` ; la revue faite, il passe |
 
 Installation : `install.py` (enrobages `install.sh` / `install.ps1`), désinstallation symétrique,
@@ -107,8 +107,7 @@ n(`Compaction blocked by PreCompact hook: ${e.blockedBy}`,{level:"warn"});
 ```
 
 Et il n'y a pas de porte dérobée : `PreCompact` n'accepte **pas** `additionalContext` (seuls
-`decision`/`reason` au niveau racine), et `PostCompact` n'a aucun contrôle de décision, son `stdout`
-n'allant qu'au journal de débogage.
+`decision`/`reason` au niveau racine), et `PostCompact` n'a aucun contrôle de décision.
 
 *Ce que ça a produit* : la première version imprimait tout son brief de revue sur `stderr` en
 supposant que Claude le lirait. **Claude n'en a jamais vu une ligne.** Chaque revue qui a semblé
@@ -128,6 +127,41 @@ Et le brief ne doit proposer que deux destinations pour une leçon : le `CLAUDE.
 concerné, ou une **skill** nommée. Jamais `~/.claude/CLAUDE.md` — une leçon trop générale pour un
 dépôt devient une skill, elle ne remonte pas d'un cran. C'est une consigne de Loïc, tranchée pendant
 la revue : un fichier utilisateur s'applique à tous les projets sans qu'on l'ait choisi pour chacun.
+
+### Une compaction n'est bornée par aucun tour, et les hooks d'un événement courent en parallèle
+
+Rien d'autre ne bouge le marqueur pendant un `/compact` : `Stop` a déjà tiré
+avant, `UserPromptSubmit` ne tire pas sur une commande intégrée. L'onglet restait
+donc jaune pendant des minutes de travail. `PreCompact` le passe au vert,
+`PostCompact` le rend au jaune et sonne la fin.
+
+*À faire* : matcher `manual` sur `PostCompact`. Une compaction automatique tire
+en plein tour et le travail continue après — y sonner serait le bip pour rien,
+déjà corrigé une fois sur les sous-agents.
+
+*À ne pas faire* : enregistrer deux hooks émetteurs de `terminalSequence` sur le
+même événement. Le runtime les lance tous puis attend l'ensemble
+(`await Promise.all`), et applique la séquence de chacun : deux marqueurs sur un
+même événement courent l'un contre l'autre, et le dernier arrivé gagne.
+
+D'où le câblage de `PreCompact` : un seul hook, et c'est `precompact-kaizen.py`,
+parce qu'il est le seul à savoir si la compaction va avoir lieu. Il importe
+`hook_output()` de `tab-state.py` par le chemin que l'installeur lui passe en
+`--marker`. Vert s'il laisse passer, **rouge s'il retient** — une compaction
+retenue est la définition du blocage sur l'utilisateur. Sans kaizen, c'est
+`tab-state.py` qui prend `PreCompact` ; sans marqueur d'onglet, pas de
+`--marker` et rien n'est émis.
+
+*Vérifié dans le binaire* : sur le chemin bloquant, la sortie JSON est lue et la
+séquence appliquée **avant** que le code de sortie ne soit regardé. `exit 2` et
+un marqueur ne s'excluent donc pas.
+
+*Pas encore observé en vrai* : ce que la ligne grise d'après-compaction affiche
+maintenant. Elle reprend le `stdout` de chaque hook (`PreCompact [...] completed
+successfully: …`), et notre JSON y atterrira probablement. La doc en ligne est
+muette là-dessus — elle dit seulement que pour la plupart des événements le
+`stdout` part au journal de debug. À regarder au prochain `/compact` : si c'est
+illisible, le marqueur `PreCompact` se retire sans toucher au reste.
 
 ### Le jeton de déblocage est indexé sur le RÉPERTOIRE, pas sur la session
 
@@ -212,7 +246,7 @@ l'instant précis où l'alerte doit se voir. Barre et fraction partagent le mêm
 **Vérifié sur cette machine** (WSL2 + Cursor installé côté Windows) : le cycle installation →
 réinstallation avec options différentes → désinstallation, en préservant `model`, `permissions`,
 `enabledPlugins`, `autoMode` et les hooks écrits par l'utilisateur ; la purge des options
-désactivées ; le marqueur d'onglet **vu à l'écran** ; les 61 contrôles de `test.sh`.
+désactivées ; le marqueur d'onglet **vu à l'écran** ; les 68 contrôles de `test.sh`.
 
 **Jamais exécuté sur une vraie machine** : les chemins **macOS** et **Windows natif** — `afplay`,
 `winsound`, et les emplacements de réglages de chaque éditeur. Écrits d'après leur comportement
@@ -230,10 +264,16 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
   distance sûre au rouge est le jaune.
 - **Un triangle d'avertissement est apparu sur chaque onglet** de la liste des terminaux, absent des
   captures antérieures. Cause inconnue, jamais creusée. L'infobulle au survol le dira.
-- **La branche `auto` ne fait plus rien, et c'est définitif.** Elle passait par
+- **La branche `auto` ne déclenche aucune revue, et c'est définitif.** Elle passait par
   `additionalContext` ; la référence montre que `PreCompact` ne l'accepte pas, et que `PostCompact`
   n'a aucun contrôle de décision. Il n'existe donc aucun moyen de déclencher une revue sur une
-  compaction automatique. Elle passe en silence.
+  compaction automatique. Elle passe — elle pose le marqueur vert, et rien d'autre.
+- **Le `/compact` complet avec marqueur n'a pas encore été vu.** Vert au départ, jaune et son à
+  l'arrivée : câblé, éprouvé hors runtime par `test.sh`, jamais observé dans une vraie session. Deux
+  choses à regarder au prochain : la ligne grise d'après-compaction, qui reprend le `stdout` des
+  hooks et va sans doute y montrer notre JSON ; et le `stdout` de `PreCompact`, que le binaire verse
+  dans les instructions de compaction (`newCustomInstructions`). Si l'un des deux salit, le marqueur
+  `PreCompact` se retire seul — le son et le jaune de `PostCompact` ne dépendent pas de lui.
 - **Le chemin `/kaizen` complet n'a pas encore tourné en vrai** : blocage vu, `--release` éprouvé
   par `test.sh`, mais l'enchaînement `/compact` → `/kaizen` → `/compact` reste à observer dans une
   session. Ses trois passages réels ont chacun révélé un défaut : le `stderr` déversé à l'écran, le
@@ -242,7 +282,7 @@ documenté. Le `README.md` le dit noir sur blanc ; ne pas laisser croire à troi
 ## Tester
 
 ```bash
-./test.sh                           # 61 contrôles, sans rien installer
+./test.sh                           # 68 contrôles, sans rien installer
 ./install.sh --tab-state --replace  # sans --replace, un fichier livré modifié fait refuser
 ./install-vscode.sh                 # règle l'éditeur, puis session NEUVE
 ./uninstall.sh                      # retire ce qu'on a posé, et rien d'autre

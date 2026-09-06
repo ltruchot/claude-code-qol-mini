@@ -66,6 +66,29 @@ def paused_on_background(data):
     return bool(data.get("background_tasks") or data.get("session_crons"))
 
 
+def hook_output(state, cwd):
+    """The JSON body a hook prints to move the tab to `state`.
+
+    Exposed as a function because precompact-kaizen.py emits the marker itself
+    on PreCompact: every hook on an event runs concurrently and each one's
+    terminalSequence is applied, so two scripts writing a marker on the same
+    event race, and only that one knows whether the compaction will happen.
+
+    `terminalSequence` is a TOP-LEVEL field, not a member of hookSpecificOutput.
+    The published schema shows it nested; the runtime reads it from the root of
+    the object, so a nested one is silently ignored -- measured, eleven hook
+    invocations emitting a correct sequence that never reached the terminal.
+    Only OSC 0/1/2/9/99/777 and BEL pass the runtime's allowlist; OSC 0 is the
+    title sequence used here.
+    """
+    # The folder name is kept in the title: it is what tells several Claude
+    # terminals apart, and ${sequence} replaces the whole tab title.
+    cwd = cwd or os.getcwd()
+    label = os.path.basename(cwd.rstrip("/")) or cwd
+    title = f"{MARKERS.get(state, '')} {label}".strip()
+    return {"terminalSequence": f"\033]0;{title}\007"}
+
+
 def main():
     state = sys.argv[1] if len(sys.argv) > 1 else "idle"
 
@@ -79,22 +102,9 @@ def main():
     if state == "idle" and paused_on_background(data):
         state = "working"
 
-    # The folder name is kept in the title: it is what tells several Claude
-    # terminals apart, and ${sequence} replaces the whole tab title.
-    cwd = data.get("cwd") or os.getcwd()
-    label = os.path.basename(cwd.rstrip("/")) or cwd
-    title = f"{MARKERS.get(state, '')} {label}".strip()
-
     # Anything but strict JSON on stdout would be taken as plain text, and on
     # UserPromptSubmit plain text is injected into the conversation as context.
-    #
-    # `terminalSequence` is a TOP-LEVEL field, not a member of
-    # hookSpecificOutput. The published schema shows it nested; the runtime
-    # reads it from the root of the object, so a nested one is silently
-    # ignored -- measured, eleven hook invocations emitting a correct sequence
-    # that never reached the terminal. Only OSC 0/1/2/9/99/777 and BEL pass the
-    # runtime's allowlist; OSC 0 is the title sequence used here.
-    json.dump({"terminalSequence": f"\033]0;{title}\007"}, sys.stdout)
+    json.dump(hook_output(state, data.get("cwd")), sys.stdout)
 
 
 if __name__ == "__main__":

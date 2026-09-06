@@ -25,14 +25,16 @@ re-arms the review for the compaction after that.
 Automatic compaction is never blocked: it fires because the context is full,
 and refusing it can leave the session with nowhere to go. There is nothing
 useful to do on that path -- PreCompact takes no additionalContext and
-PostCompact's stdout reaches the debug log only -- so it passes in silence.
+PostCompact carries no decision at all -- so it passes, marker aside.
 
 Usage:
-  precompact-kaizen.py            hook mode, reads the event JSON on stdin
-  precompact-kaizen.py --release  write the token for the current directory
-  precompact-kaizen.py --token    print the token path, and nothing else
+  precompact-kaizen.py                 hook mode, reads the event JSON on stdin
+  precompact-kaizen.py --marker <path> ... and move the tab marker with it
+  precompact-kaizen.py --release       write the token for the current directory
+  precompact-kaizen.py --token         print the token path, and nothing else
 """
 import hashlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -84,6 +86,38 @@ def release():
     print(f"Kaizen recorded. /compact will now go through.\n{token}")
 
 
+def marker(state, cwd, script):
+    """Print the tab marker for `state`, on tab-state.py's behalf.
+
+    This script owns the marker on PreCompact rather than tab-state.py being
+    registered there too. Every hook on an event runs concurrently and each
+    one's terminalSequence is applied, so two of them writing a marker on the
+    same event race -- and only this one knows whether the compaction is going
+    to happen at all. install.py passes --marker <path> when the tab marker is
+    installed, and registers tab-state.py on PreCompact only when it is not.
+
+    A stdout that a hook cannot parse must never cost a compaction, so every
+    failure here is silent: no marker is worth a refused /compact.
+    """
+    if not script:
+        return
+    try:
+        spec = importlib.util.spec_from_file_location("tab_state", script)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        json.dump(module.hook_output(state, cwd), sys.stdout)
+    except Exception:
+        pass
+
+
+def option(name):
+    """The value after `name` on the command line, or None."""
+    arguments = sys.argv[1:]
+    if name in arguments and arguments.index(name) + 1 < len(arguments):
+        return arguments[arguments.index(name) + 1]
+    return None
+
+
 def main():
     if "--token" in sys.argv[1:]:
         print(token_for(os.getcwd()))
@@ -97,10 +131,19 @@ def main():
     except ValueError:
         sys.exit(0)  # An unreadable payload must never block a compaction.
 
-    if data.get("trigger") == "auto":
+    tab = option("--marker")
+    cwd = data.get("cwd") or os.getcwd()
+
+    # Compaction is work, and a long one at that. Green for as long as it runs;
+    # PostCompact puts the tab back to rest and rings the end of it.
+    def allow():
+        marker("working", cwd, tab)
         sys.exit(0)
 
-    token = token_for(data.get("cwd") or os.getcwd())
+    if data.get("trigger") == "auto":
+        allow()
+
+    token = token_for(cwd)
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         sweep_stale(time.time())
@@ -108,12 +151,17 @@ def main():
             # A recorded review: honor it, and consume the token so the next
             # /compact in this directory is reviewed too.
             token.unlink()
-            sys.exit(0)
+            allow()
     except OSError:
         # A state directory that cannot be managed must not make /compact
         # unusable, so a broken one lets the compaction through.
-        sys.exit(0)
+        allow()
 
+    # Red, because a held-back compaction is the definition of blocked on you:
+    # nothing runs until you type something. The sequence still reaches the
+    # terminal on this path -- the runtime parses stdout and applies it before
+    # it looks at the exit status.
+    marker("blocked", cwd, tab)
     print(BLOCKED, file=sys.stderr)
     sys.exit(2)
 

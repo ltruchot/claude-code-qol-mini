@@ -90,11 +90,17 @@ same way.
 
 ## 5. Clear the block
 
-When the review is done — including when it turned up nothing — run:
+When the review is done — including when it turned up nothing — run the release
+**from the session's primary working directory**. The token is keyed by the
+directory, and the shell keeps whatever one an earlier call left it in, so
+releasing from the wrong place arms another project and the block comes back
+here:
 
 ```
-{{RELEASE_COMMAND}}
+cd <primary working directory> \
+  && {{RELEASE_COMMAND}}
 ```
 
-Then tell the user `/compact` will go through now. The token is spent as it's
-honored, so the next compaction gets reviewed too.
+It prints the token it wrote, and the name carries the directory. Read that line
+before telling the user `/compact` will go through now. The token is spent as
+it's honored, so the next compaction gets reviewed too.

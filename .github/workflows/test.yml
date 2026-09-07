@@ -28,8 +28,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,6 +35,9 @@ jobs:
           python-version: "3.x"
       - name: install, update, uninstall
         shell: python
+        env:
+          # The runner context is not available in a job-level env block.
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
         run: |
           import json, os, pathlib, subprocess, sys
           target = pathlib.Path(os.environ["CLAUDE_CONFIG_DIR"])

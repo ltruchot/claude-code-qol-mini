@@ -5,16 +5,13 @@ import json
 import os
 import pathlib
 import shutil
+import sys
 
-# "sounds/play.sh" is the pre-Python shell player: kept here so that upgrading
-# from an older install removes its orphaned hook instead of leaving it behind.
-# "precompact-friction.py" is the pre-kaizen name of the same hook, kept for
-# the same reason.
-OURS = ("sounds/play.py", "sounds/play.sh",
-        "hooks/tab-state.py", "hooks/precompact-kaizen.py",
-        "hooks/precompact-friction.py")
-EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
-          "SessionEnd", "PreCompact")
+# What is ours, and where it is registered, is defined once, in install.py. A
+# second copy here drifted: three events added to the installer never reached
+# this list, and an uninstall left their hooks pointing at deleted files.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from install import EVENTS, OURS  # noqa: E402
 
 target = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR") or pathlib.Path.home() / ".claude")
 

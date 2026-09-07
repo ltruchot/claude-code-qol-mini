@@ -1,0 +1,54 @@
+# test.sh on Linux and macOS, the install/uninstall cycle on all three. The
+# macOS and Windows paths were written from documented behavior: this is the
+# only place they run at all, so a green matrix is what the README's
+# "verified" claim rests on for the installer. Audio and the editor are not
+# exercised here; nothing plays a sound on a runner.
+name: test
+on: [push, pull_request]
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.x"]
+        include:
+          - os: ubuntu-latest
+            python: "3.8"   # the floor the README promises
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: ./test.sh
+  install-cycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: install, update, uninstall
+        shell: python
+        run: |
+          import json, os, pathlib, subprocess, sys
+          target = pathlib.Path(os.environ["CLAUDE_CONFIG_DIR"])
+          run = lambda script, *a: subprocess.run(
+              [sys.executable, script, *a], check=True, stdin=subprocess.DEVNULL)
+          run("install.py", "--tab-state", "--warn", "120000")
+          run("install.py", "--replace")             # keeps what is installed
+          run("install-vscode.py", "--dry-run")
+          data = json.loads(target.joinpath("settings.json").read_text())
+          assert "PermissionRequest" in data["hooks"], data
+          assert "--warn 120000" in data["statusLine"]["command"], data
+          for name in ("needs-you.wav", "done.wav"):
+              assert target.joinpath("sounds", name).stat().st_size > 1000
+          run("uninstall.py")
+          assert json.loads(target.joinpath("settings.json").read_text()) == {}

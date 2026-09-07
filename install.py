@@ -74,6 +74,60 @@ def config_dir():
     return pathlib.Path(override) if override else pathlib.Path.home() / ".claude"
 
 
+def stdin_is_console():
+    """True only for a person at a terminal.
+
+    On Windows, sys.stdin.isatty() is True for the NUL device as well, so a
+    CI step with stdin=DEVNULL got the interview (measured on windows-latest).
+    GetConsoleMode succeeds on a real console handle and fails on NUL or a
+    pipe, which is the distinction wanted here.
+    """
+    import os
+
+    if os.name != "nt":
+        return sys.stdin.isatty()
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        mode = ctypes.c_ulong()
+        return bool(kernel32.GetConsoleMode(handle, ctypes.byref(mode)))
+    except Exception:
+        return False
+
+
+def is_ours(handler):
+    """True when a hook entry runs one of our scripts, whatever the separator.
+
+    The match is on the path, and on Windows the installer writes it with
+    backslashes: "hooks/tab-state.py" never matched "...\\hooks\\tab-state.py",
+    so nothing was ever purged there and every install appended its hooks
+    again. Measured on windows-latest.
+    """
+    text = " ".join([handler.get("command", ""), *handler.get("args", [])])
+    text = text.replace("\\", "/")
+    return any(marker in text for marker in OURS)
+
+
+def without_ours(hooks):
+    """`hooks` with our handlers removed from every event we write to.
+
+    Shared with uninstall.py. Groups left empty go, and so do events.
+    """
+    for event in EVENTS:
+        groups = []
+        for group in hooks.get(event, []):
+            kept = [h for h in group.get("hooks", []) if not is_ours(h)]
+            if kept:
+                groups.append({**group, "hooks": kept})
+        if groups:
+            hooks[event] = groups
+        else:
+            hooks.pop(event, None)
+    return hooks
+
+
 FLAGS = {"--statusline": ("statusline", True), "--no-statusline": ("statusline", False),
          "--sounds": ("sounds", True), "--no-sounds": ("sounds", False),
          "--kaizen": ("kaizen", True), "--no-kaizen": ("kaizen", False),
@@ -288,23 +342,10 @@ def settings_for(chosen, target, python, data):
         return {"type": "command", "command": python,
                 "args": [str(target / script), *arguments]}
 
-    hooks = data.get("hooks", {})
-
     # Drop the handlers this installer owns before adding back the enabled ones,
     # so turning a feature off uninstalls it. Hooks the user wrote themselves
     # match none of OURS and survive untouched.
-    for event in EVENTS:
-        groups = []
-        for group in hooks.get(event, []):
-            kept = [h for h in group.get("hooks", [])
-                    if not any(m in " ".join([h.get("command", ""), *h.get("args", [])])
-                               for m in OURS)]
-            if kept:
-                groups.append({**group, "hooks": kept})
-        if groups:
-            hooks[event] = groups
-        else:
-            hooks.pop(event, None)
+    hooks = without_ours(data.get("hooks", {}))
 
     def add(event, handlers, matcher=None):
         if not handlers:
@@ -392,7 +433,7 @@ def main():
     # Asking is for a person at a terminal. An option, a pipe or a CI runner
     # means someone already decided, so nothing is asked and nothing blocks.
     installed = installed_state(target)
-    if not decisive and sys.stdin.isatty():
+    if not decisive and stdin_is_console():
         chosen = interview(installed)
     else:
         chosen = parse(decisive, installed)

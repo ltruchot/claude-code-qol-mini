@@ -453,6 +453,25 @@ else
     echo "  FAIL  a SessionEnd handler came back"; failures=$((failures + 1))
 fi
 
+# On Windows the installer writes the hook path with backslashes. The purge
+# has to recognize it anyway, or every install appends its hooks again.
+if python3 - "$REPO" <<'PYW'
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location("installer", pathlib.Path(sys.argv[1]) / "install.py")
+installer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(installer)
+ours = {"type": "command", "command": "C:\\Python\\python.exe",
+        "args": ["C:\\Users\\me\\.claude\\hooks\\tab-state.py", "working"]}
+theirs = {"type": "command", "command": "echo hi"}
+hooks = {"UserPromptSubmit": [{"hooks": [ours, theirs]}], "Stop": [{"hooks": [ours]}]}
+assert installer.without_ours(hooks) == {"UserPromptSubmit": [{"hooks": [theirs]}]}
+PYW
+then
+    echo "  ok    a backslash path is still ours"
+else
+    echo "  FAIL  Windows paths escape the purge"; failures=$((failures + 1))
+fi
+
 # The rule lives in two files that are installed separately. They must agree.
 if python3 - "$REPO" <<'PY'
 import importlib.util, pathlib, sys

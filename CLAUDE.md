@@ -1,7 +1,13 @@
-# Instructions — `vscode-comfy-claude-config`
+# Instructions — `claude-code-qol-mini`
 
-A comfort harness for Claude Code, published at `ltruchot/vscode-comfy-claude-config`.
-It has to work on **Linux, macOS, WSL and Windows**, in **VS Code and Cursor**.
+A quality-of-life kit for Claude Code, published at `ltruchot/claude-code-qol-mini`
+(formerly `vscode-comfy-claude-config`; GitHub redirects the old URL). It has to work
+on **Linux, macOS, WSL and Windows**, in **VS Code and Cursor**.
+
+**Vocabulary**: say *kit*, *setup*, or *hooks*; never *harness*. In this ecosystem a
+harness is the agent runtime itself (Claude Code is the harness), and the
+`awesome-claude-code` list already holds three projects named Harness that are
+workflows. "Comfort harness" reads to an English speaker as tack for a horse.
 
 **What it is for, which settles the trade-offs**: a model that is not working is a
 model you could hand something to. Every signal answers *is it running* before it
@@ -15,13 +21,13 @@ before September 2026 are in French; leave them.
 **Style**: terse. No metaphors, no imagery, no wind-up. Name the trigger, then the
 action. Say what was measured and what was assumed.
 
-## What the harness does
+## What the kit does
 
 | Feature | File | What you see |
 |---|---|---|
 | Context status line | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88/200k · my-project` |
 | Notification sounds | `sounds/play.py`, `sounds/generate.py` | two rising notes when Claude wants you, one low note when a turn or a `/compact` ends |
-| Tab marker | `hooks/tab-state.py` | 🟢 working (subagent and compaction included) · 🔴 blocked on you · 🟡 idle |
+| Tab marker | `hooks/tab-state.py` | 🟢 working (subagent and compaction included) · 🔴 blocked on you (red the moment a permission dialog appears) · 🟡 idle |
 | Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops and tells you to run `/kaizen`; once reviewed, it goes through |
 
 Install with `install.py` (`install.sh` / `install.ps1` wrap it), uninstall with the
@@ -37,9 +43,12 @@ Each one cost something in a real session.
 
 ### `terminalSequence` is a ROOT field of a hook's output
 
-The published schema shows it inside `hookSpecificOutput`. **The runtime reads it at
-the root** (`if (e.terminalSequence)`). Nested, it is **ignored silently**: no error,
-no warning.
+An earlier version of the published schema showed it inside `hookSpecificOutput`.
+**The runtime reads it at the root** (`if (e.terminalSequence)`). Nested, it is
+**ignored silently**: no error, no warning. Checked 2026-09-07: the reference now
+lists it among the universal fields, at the root, with the allowlist, and says "use
+this instead of writing to `/dev/tty`". `CLAUDE_CODE_DISABLE_TERMINAL_TITLE` is in
+`env-vars.md`. Do not write that the docs are wrong on this; they were, once.
 
 Measured before the fix: **eleven invocations, four event types, the right sequence
 produced every time, nothing on screen.** A correct producer whose output goes
@@ -49,7 +58,7 @@ nowhere looks exactly like an unimplemented feature.
 from `hookSpecificOutput`. Only **OSC 0/1/2/9/99/777 and BEL** pass the runtime's
 allowlist.
 *Don't*: trust a published schema when the behavior contradicts it. Read the binary
-(`grep -a`).
+(`grep -a`). And date any claim about the docs: they move.
 
 ### The tab marker needs THREE things at once
 
@@ -194,6 +203,20 @@ because a subagent asking for input is a real block on you.
 The same probe showed the in-flight registry lagging: a `SubagentStop` payload
 listed its own subagent as `status: "running"`. Do not treat
 `background_tasks` as exact at the instant a task settles.
+
+### `permission_prompt` is six seconds late; `PermissionRequest` is not
+
+From the reference: `permission_prompt` is emitted "only after the prompt has waited
+about six seconds", each keystroke defers it, and "to run a hook immediately when
+Claude asks for permission, use `PermissionRequest`". That event honors
+`terminalSequence`, ignores exit 2, and a hook that returns no `decision` leaves the
+dialog to the user. So the marker goes red on `PermissionRequest` and the sound keeps
+`Notification`: the gate is what stops it ringing at someone already looking.
+
+Also wired from the reference, **not yet observed**: `quota_auto_resume_stale` and
+`quota_auto_resume_disabled` (red, needs-you), `quota_auto_resume_fired` (green),
+`StopFailure` (red, no sound; it ignores everything but the sequence). If one of them
+misbehaves in a session, unwire it in `settings_for()` and say so here.
 
 ### Nothing announces a turn that ends on a question
 
@@ -343,15 +366,19 @@ because `0k/200k` reads as the word "Ok" before it reads as a count.
 
 ## What is verified, and what is not
 
-**Verified on this machine** (WSL2 + Cursor installed on the Windows side): the
+**Verified on this machine, a hybrid**: terminal and Claude Code in WSL2, Cursor on
+the Windows side, so the editor settings file patched is the Windows one under
+`/mnt/c/Users/…`. Native Linux, where the editor reads `~/.config/…`, has not been
+seen on screen either. Seen here: the
 install → reinstall with different options → uninstall cycle, preserving `model`,
 `permissions`, `enabledPlugins`, `autoMode` and hooks written by the user; the purge
-of disabled options; the tab marker **seen on screen**; the 75 checks in `test.sh`.
+of disabled options; the tab marker **seen on screen**; the 84 checks in `test.sh`.
 
-**Never run on a real machine**: the **macOS** and **native Windows** paths —
-`afplay`, `winsound`, and each editor's settings location. Written from documented
-behavior. The README says so plainly; do not let anyone believe three platforms were
-tested.
+**Run only in CI** (`.github/workflows/test.yml`): the install → update → uninstall
+cycle on macOS and Windows runners, and `test.sh` on Python 3.8. That exercises the
+installer, the merge and `sys.executable` quoting there — not `afplay`, not
+`winsound`, not the editor's settings location. Written from documented behavior. The
+README says so; do not let anyone believe the sounds were heard on three platforms.
 
 ## Open threads
 
@@ -376,6 +403,11 @@ tested.
   instructions (`newCustomInstructions`). If either is dirty, the `PreCompact` marker
   comes out on its own — the sound and the yellow from `PostCompact` do not depend on
   it.
+- **An interrupted turn could be caught by tailing the transcript.**
+  `LiveNL/tmux-claude-status-tabs` does it: a watcher per session reads the JSONL
+  and sees the `user-rejected` denial and the abort that no hook reports. It is a
+  process per session on a clock, which is exactly what this kit does not carry.
+  The lead, if the gap is ever worth closing.
 - **The full `/kaizen` path has not run for real**: the block has been seen and
   `--release` is covered by `test.sh`, but the `/compact` → `/kaizen` → `/compact`
   sequence remains to be observed in a session. Its three real passes each exposed a
@@ -385,23 +417,23 @@ tested.
 ## Testing
 
 ```bash
-./test.sh                           # 75 checks, installs nothing
-./install.sh --tab-state --replace  # without --replace, an edited file makes it refuse
+./test.sh                           # 84 checks, installs nothing
+./install.sh --replace              # reinstalls the current options; an edited file makes it refuse without --replace
 ./install-vscode.sh                 # sets the editor, then start a NEW session
 ./uninstall.sh                      # removes what we laid down, and nothing else
 ```
 
 A change is not delivered until it is installed. The repo is not the running
-harness: `~/.claude` holds a copy, and editing `statusline/context.py` here changes
+kit: `~/.claude` holds a copy, and editing `statusline/context.py` here changes
 nothing on screen. When a change is meant to be visible, install it before saying it
 is done — the gauge was reported fixed while the old copy was still running.
 
-**And the install has to carry the options already in place.** `installed_state()` is
-read on the interactive path only (`install.py:363`): an option plus a `stdin` that is
-not a terminal — an agent, a script, CI — goes through `parse()`, which starts from
-`DEFAULTS`, where `tabs` is `False`. A bare `./install.sh --replace` therefore **purges
-the tab marker** instead of laying it back. Write `--replace --tab-state`, and the
-thresholds with it when they are not the shipped ones.
+**Options overlay what is installed.** `parse()` starts from `installed_state()`, so
+`./install.sh --replace` alone reinstalls the current options and `--warn 120000` on a
+machine with the tab marker keeps the marker. Before this, it started from `DEFAULTS`
+and the README's own update command purged the marker. `--defaults` is the only reset.
+Each feature has both flags (`--sounds` / `--no-sounds`), so any state is reachable
+without the interview.
 
 `CLAUDE_CONFIG_DIR` points the install at a throwaway folder. That is how a full cycle
 is exercised without touching a real configuration.

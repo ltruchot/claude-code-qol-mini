@@ -393,9 +393,15 @@ tested.
 
 A change is not delivered until it is installed. The repo is not the running
 harness: `~/.claude` holds a copy, and editing `statusline/context.py` here changes
-nothing on screen. When a change is meant to be visible, run `./install.sh --replace`
-before saying it is done — the gauge was reported fixed while the old copy was still
-running.
+nothing on screen. When a change is meant to be visible, install it before saying it
+is done — the gauge was reported fixed while the old copy was still running.
+
+**And the install has to carry the options already in place.** `installed_state()` is
+read on the interactive path only (`install.py:363`): an option plus a `stdin` that is
+not a terminal — an agent, a script, CI — goes through `parse()`, which starts from
+`DEFAULTS`, where `tabs` is `False`. A bare `./install.sh --replace` therefore **purges
+the tab marker** instead of laying it back. Write `--replace --tab-state`, and the
+thresholds with it when they are not the shipped ones.
 
 `CLAUDE_CONFIG_DIR` points the install at a throwaway folder. That is how a full cycle
 is exercised without touching a real configuration.

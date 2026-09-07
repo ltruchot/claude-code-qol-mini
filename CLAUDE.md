@@ -330,6 +330,25 @@ migration marker, an update left two orphan hooks pointing at a deleted file.
 
 *Do*: when a delivered file is renamed, add the old name to `OURS`.
 
+### Windows is not Linux with backslashes: three things CI caught on day one
+
+All three measured on `windows-latest`, none on this machine.
+
+- **The purge matched on `hooks/tab-state.py`; the installer writes the path with
+  backslashes.** Nothing was ever purged there: every install appended its hooks
+  again and uninstall left them all. `is_ours()` normalizes separators first.
+- **`sys.stdin.isatty()` is `True` for `NUL`.** A step with `stdin=DEVNULL` got the
+  interview. `stdin_is_console()` asks `GetConsoleMode`, which fails on NUL and pipes.
+- **`python.exe` exists on a fresh Windows, and it is not Python**: the Microsoft
+  Store alias prints "Python was not found" and exits 9009. `Get-Command` reports it
+  as a command. The `.ps1` wrappers run each candidate once before trusting it, with
+  errors set to `Continue`: under PowerShell 5.1, a native command writing to stderr
+  is a terminating error when the preference is `Stop`. Reproduced through
+  `powershell.exe` from WSL.
+
+*Do*: keep the Windows job in `.github/workflows/test.yml`. It is the only place the
+native path runs.
+
 ### An editor's `settings.json` is JSONC
 
 It can hold comments and trailing commas. Parsing and reserializing would drop them
@@ -372,7 +391,7 @@ the Windows side, so the editor settings file patched is the Windows one under
 seen on screen either. Seen here: the
 install → reinstall with different options → uninstall cycle, preserving `model`,
 `permissions`, `enabledPlugins`, `autoMode` and hooks written by the user; the purge
-of disabled options; the tab marker **seen on screen**; the 84 checks in `test.sh`.
+of disabled options; the tab marker **seen on screen**; the 85 checks in `test.sh`.
 
 **Run only in CI** (`.github/workflows/test.yml`): the install → update → uninstall
 cycle on macOS and Windows runners, and `test.sh` on Python 3.8. That exercises the
@@ -417,7 +436,7 @@ README says so; do not let anyone believe the sounds were heard on three platfor
 ## Testing
 
 ```bash
-./test.sh                           # 84 checks, installs nothing
+./test.sh                           # 85 checks, installs nothing
 ./install.sh --replace              # reinstalls the current options; an edited file makes it refuse without --replace
 ./install-vscode.sh                 # sets the editor, then start a NEW session
 ./uninstall.sh                      # removes what we laid down, and nothing else

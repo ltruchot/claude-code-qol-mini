@@ -114,8 +114,13 @@ def hook_output(state, cwd):
     """
     # The folder name is kept in the title: it is what tells several Claude
     # terminals apart, and ${sequence} replaces the whole tab title.
+    # normpath drops the trailing separator on every platform; rstrip("/")
+    # left a Windows path ending in a backslash with an empty basename. A
+    # control character in the name would make the runtime drop the whole
+    # field in silence -- its allowlist rejects anything it cannot parse.
     cwd = cwd or os.getcwd()
-    label = os.path.basename(cwd.rstrip("/")) or cwd
+    label = os.path.basename(os.path.normpath(cwd)) or cwd
+    label = "".join(c for c in label if c >= " " and c != "\x7f")
     title = f"{MARKERS.get(state, '')} {label}".strip()
     return {"terminalSequence": f"\033]0;{title}\007"}
 

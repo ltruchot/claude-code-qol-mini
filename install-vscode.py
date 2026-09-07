@@ -9,7 +9,7 @@ Without it a tab keeps its default title, taken from the process name, and the
 marker the hooks emit is never displayed.
 
 The file is JSONC: VS Code allows comments and trailing commas in it, and many
-people have them. Parsing then re-serialising would delete those silently, so
+people have them. Parsing then re-serializing would delete those silently, so
 the key is inserted textually and the rest of the file is left byte for byte
 as it was.
 
@@ -26,7 +26,7 @@ import sys
 
 KEY = "terminal.integrated.tabs.title"
 VALUE = "${sequence}"
-FLAVOURS = ("Code", "Code - Insiders", "VSCodium", "Cursor")
+FLAVORS = ("Code", "Code - Insiders", "VSCodium", "Cursor")
 SERVERS = (".vscode-server", ".vscode-server-insiders", ".cursor-server")
 
 dry_run = "--dry-run" in sys.argv
@@ -54,8 +54,8 @@ def candidates():
         root = pathlib.Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
     else:
         root = pathlib.Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
-    for flavour in FLAVOURS:
-        found.append(root / flavour / "User" / "settings.json")
+    for flavor in FLAVORS:
+        found.append(root / flavor / "User" / "settings.json")
 
     # Remote sessions (WSL, SSH, dev containers): machine-scope settings, which
     # the server applies rather than the client.
@@ -65,9 +65,13 @@ def candidates():
     # Under WSL the client's own user settings live on the Windows side, and
     # that is where a setting which is not machine-scoped is read from.
     if is_wsl():
-        for flavour in FLAVOURS:
-            found += [pathlib.Path(p) for p in glob.glob(
-                f"/mnt/c/Users/*/AppData/Roaming/{flavour}/User/settings.json")]
+        for flavor in FLAVORS:
+            for match in glob.glob(f"/mnt/c/Users/*/AppData/Roaming/{flavor}/User/settings.json"):
+                # Real profiles only: the template and shared accounts are
+                # nobody's editor, and patching them would land in every new
+                # Windows user's settings.
+                if match.split("/")[3] not in ("Default", "Default User", "Public", "All Users"):
+                    found.append(pathlib.Path(match))
 
     return found
 

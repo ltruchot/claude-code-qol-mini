@@ -121,8 +121,9 @@ def play(sound):
 
             winsound.PlaySound(str(sound), winsound.SND_FILENAME | winsound.SND_ASYNC)
             return
+        quoted = str(sound).replace("'", "''")  # a ' in the path ends the string
         spawn(["powershell", "-NoProfile", "-Command",
-               f"(New-Object Media.SoundPlayer '{sound}').Play()"])
+               f"(New-Object Media.SoundPlayer '{quoted}').Play()"])
         return
 
     if sys.platform == "darwin":

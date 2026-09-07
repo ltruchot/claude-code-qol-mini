@@ -173,7 +173,9 @@ setup() {
 setup "an unknown option is refused"  1 --no-such-thing
 setup "warn above alert is refused"   1 --no-sounds --warn 300000 --alert 200000
 setup "a threshold needs a number"    1 --no-sounds --warn banana
-setup "thresholds are accepted"       0 --no-sounds --warn=120000 --alert 250000
+# The gauge was left out by the run above; an option changes one thing, so it
+# has to be asked back for its thresholds to land.
+setup "thresholds are accepted"       0 --no-sounds --statusline --warn=120000 --alert 250000
 if grep -q -- '--warn 120000 --alert 250000' "$INST/settings.json"; then
     echo "  ok    thresholds reach the status line"
 else
@@ -206,11 +208,23 @@ else
     echo "  FAIL  the interview mis-reads answers"; failures=$((failures + 1))
 fi
 
+CLAUDE_CONFIG_DIR="$INST" python3 "$REPO/install.py" --tab-state >/dev/null 2>&1 </dev/null
 CLAUDE_CONFIG_DIR="$INST" python3 "$REPO/uninstall.py" >/dev/null 2>&1
 if [ ! -e "$INST/skills/kaizen" ]; then
     echo "  ok    uninstall removes the skill"
 else
     echo "  FAIL  skill survived uninstall"; failures=$((failures + 1))
+fi
+# Every event the installer writes to has to be on the uninstaller's list too.
+# Three of them were not, and an uninstall left hooks pointing at deleted files.
+if python3 -c "
+import json, sys
+data = json.load(open('$INST/settings.json'))
+assert 'hooks' not in data and 'statusLine' not in data and 'env' not in data, data
+"; then
+    echo "  ok    uninstall leaves no hook behind"
+else
+    echo "  FAIL  orphan hooks after uninstall"; failures=$((failures + 1))
 fi
 rm -rf "$INST"
 
@@ -264,6 +278,29 @@ else
     echo "  FAIL  a custom sound was regenerated"; failures=$((failures + 1))
 fi
 
+# Options change one thing and leave the rest as installed. The README's own
+# update command, a bare --replace, used to purge the tab marker because the
+# parser started from the defaults, where the marker is off.
+says "a threshold is set"            "updated"        --warn 120000
+says "--replace alone keeps the marker" "Nothing changed" --replace
+if grep -q 'tab-state.py' "$IDEM/settings.json" && grep -q -- '--warn 120000' "$IDEM/settings.json"; then
+    echo "  ok    marker and threshold survive --replace"
+else
+    echo "  FAIL  a bare --replace reset the install"; failures=$((failures + 1))
+fi
+says "--no-tab-state removes it"      "updated"        --no-tab-state
+if grep -q 'tab-state.py' "$IDEM/settings.json"; then
+    echo "  FAIL  --no-tab-state left the marker"; failures=$((failures + 1))
+else
+    echo "  ok    --no-tab-state unwires the marker"
+fi
+says "--defaults resets everything"   "updated"        --defaults
+if grep -q -- '--warn' "$IDEM/settings.json"; then
+    echo "  FAIL  --defaults kept a threshold"; failures=$((failures + 1))
+else
+    echo "  ok    --defaults drops the threshold"
+fi
+
 CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/uninstall.py" >/dev/null 2>&1
 out="$(CLAUDE_CONFIG_DIR="$IDEM" python3 "$REPO/uninstall.py" 2>&1)"
 case "$out" in
@@ -296,6 +333,20 @@ if printf '%s' "$out" | grep -q '(idle) demo'; then
     echo "  ok    markers overridable via CC_TAB_*"
 else
     echo "  FAIL  marker override"; failures=$((failures + 1))
+fi
+# A control character in the folder name would make the runtime drop the whole
+# field in silence, and a trailing separator used to leave an empty label.
+if python3 -c "
+import json, subprocess, sys
+for cwd, want in (('/tmp/de\x1bmo\x07/', 'demo'), ('/tmp/demo/', 'demo')):
+    out = subprocess.run([sys.executable, '$REPO/hooks/tab-state.py', 'idle'],
+                         input=json.dumps({'cwd': cwd}), capture_output=True, text=True).stdout
+    seq = json.loads(out)['terminalSequence']
+    assert seq == '\x1b]0;' + seq[4:-1] + '\x07' and seq.endswith(want + '\x07'), repr(seq)
+"; then
+    echo "  ok    the label carries no control byte"
+else
+    echo "  FAIL  label sanitizing"; failures=$((failures + 1))
 fi
 
 # Parked on a subagent is not your turn: Stop carries background_tasks and
@@ -459,10 +510,19 @@ hooks = json.loads((target / 'settings.json').read_text())['hooks']
 for event in ('PostToolBatch', 'SubagentStop'):
     args = hooks[event][0]['hooks'][0]['args']
     assert args[0].endswith('tab-state.py') and args[1] == 'working', (event, args)
+# Red the moment the permission dialog appears: permission_prompt is emitted
+# only after the dialog has waited about six seconds, PermissionRequest at once.
+for event in ('PermissionRequest', 'StopFailure'):
+    args = hooks[event][0]['hooks'][0]['args']
+    assert args[0].endswith('tab-state.py') and args[1] == 'blocked', (event, args)
+matchers = {g.get('matcher'): g for g in hooks['Notification']}
+assert 'quota_auto_resume_stale' in [m for m in matchers if m and 'permission_prompt' in m][0]
+assert matchers['quota_auto_resume_fired']['hooks'][0]['args'][1] == 'working'
 # And they go when the marker does.
-run('--replace')
+run('--no-tab-state')
 hooks = json.loads((target / 'settings.json').read_text()).get('hooks', {})
-assert 'PostToolBatch' not in hooks and 'SubagentStop' not in hooks, hooks
+for event in ('PostToolBatch', 'SubagentStop', 'PermissionRequest', 'StopFailure'):
+    assert event not in hooks, (event, hooks)
 "; then
     echo "  ok    work resumes on green, and unwires"
 else

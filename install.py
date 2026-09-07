@@ -15,14 +15,19 @@ every default without asking.
 
 Usage: install.py [options]
 
-  --no-statusline      leave the context gauge out
-  --no-sounds          leave the notification sounds out
-  --tab-state          add the terminal tab marker (retitles every terminal)
-  --no-kaizen          leave the /compact friction review out
+  --statusline / --no-statusline   the context gauge (default on)
+  --sounds / --no-sounds           the notification sounds (default on)
+  --kaizen / --no-kaizen           the /compact friction review (default on)
+  --tab-state / --no-tab-state     the terminal tab marker (default off:
+                                   it retitles every terminal)
   --warn N             gauge turns orange at N tokens (default 100000)
   --alert N            gauge turns red at N tokens (default 200000)
   --defaults           install the defaults without asking
   --replace            overwrite delivered files that differ (see below)
+
+Options change one thing each and leave the rest as installed: on a machine
+that already has the tab marker, `--replace` alone keeps it. Only a fresh
+install starts from the defaults.
 
 Nothing already on disk is overwritten. Files this installer owns are created
 when missing, left alone when identical, and reported when they differ -- with
@@ -49,7 +54,7 @@ OURS = ("sounds/play.py", "sounds/play.sh",
         "hooks/precompact-friction.py")
 EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
           "SessionEnd", "PreCompact", "PostCompact", "PostToolBatch",
-          "SubagentStop")
+          "SubagentStop", "PermissionRequest", "StopFailure")
 
 # Files we used to deliver under other names. Pruning their handlers is not
 # enough: the scripts themselves have to go, or an install leaves dead copies
@@ -69,27 +74,35 @@ def config_dir():
     return pathlib.Path(override) if override else pathlib.Path.home() / ".claude"
 
 
-def parse(argv):
-    """Command-line options over the defaults. Exits on anything unrecognized."""
-    chosen = dict(DEFAULTS)
+FLAGS = {"--statusline": ("statusline", True), "--no-statusline": ("statusline", False),
+         "--sounds": ("sounds", True), "--no-sounds": ("sounds", False),
+         "--kaizen": ("kaizen", True), "--no-kaizen": ("kaizen", False),
+         "--no-friction": ("kaizen", False),  # pre-skill name
+         "--tab-state": ("tabs", True), "--no-tab-state": ("tabs", False)}
+
+
+def parse(argv, base):
+    """Command-line options over `base`, the installed state. Exits on anything
+    unrecognized.
+
+    Starting from what is installed rather than from DEFAULTS is what makes
+    `--replace` alone an update and not a reset: the README's own update
+    command used to purge the tab marker, because `tabs` defaults to False.
+    """
     if "-h" in argv or "--help" in argv:
         print(__doc__.strip())
         raise SystemExit(0)
+    chosen = dict(DEFAULTS if "--defaults" in argv else base)
     pending = None
     for argument in argv:
         if pending:
             chosen[pending] = number(pending, argument)
             pending = None
-        elif argument == "--no-statusline":
-            chosen["statusline"] = False
-        elif argument == "--no-sounds":
-            chosen["sounds"] = False
-        elif argument == "--tab-state":
-            chosen["tabs"] = True
-        elif argument in ("--no-kaizen", "--no-friction"):  # pre-skill name
-            chosen["kaizen"] = False
+        elif argument in FLAGS:
+            key, value = FLAGS[argument]
+            chosen[key] = value
         elif argument == "--defaults":
-            pass
+            pass  # applied above, whatever its position
         elif argument in ("--warn", "--alert"):
             pending = argument[2:]
         elif argument.startswith(("--warn=", "--alert=")):
@@ -305,12 +318,29 @@ def settings_for(chosen, target, python, data):
     # Red and the rising notes are spent on one thing: Claude cannot go on
     # without you. `idle_prompt` fires a minute after a turn ends and asks for
     # nothing, so it gets the resting marker and no sound.
+    # The two quota_auto_resume_* types here wait on you too: a reset that
+    # arrived while the machine slept needs Enter, a wait that ended without
+    # continuing needs a decision. Documented, not yet observed in a session.
     blocked = ([hook("sounds/play.py", "needs-you")] if sounds else []) + \
               ([hook("hooks/tab-state.py", "blocked")] if tabs else [])
     add("Notification", blocked,
-        "permission_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog")
+        "permission_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog"
+        "|quota_auto_resume_stale|quota_auto_resume_disabled")
     if tabs:
+        # `permission_prompt` is emitted only once the dialog has waited about
+        # six seconds, and every keystroke defers it; PermissionRequest fires
+        # the moment the dialog appears. The marker takes the early one. The
+        # sound keeps the gate: it exists so nothing rings while you are
+        # already looking.
+        add("PermissionRequest", [hook("hooks/tab-state.py", "blocked")])
         add("Notification", [hook("hooks/tab-state.py", "idle")], "idle_prompt")
+        # A usage-limit wait that ends by itself resumes the work.
+        add("Notification", [hook("hooks/tab-state.py", "working")],
+            "quota_auto_resume_fired")
+        # A turn that ends on an API error -- rate limit, authentication --
+        # runs StopFailure instead of Stop. Everything in its output is
+        # ignored except the sequence. Red: nothing goes on until you look.
+        add("StopFailure", [hook("hooks/tab-state.py", "blocked")])
     add("Stop", ([hook("sounds/play.py", "done")] if sounds else []) +
                 ([hook("hooks/tab-state.py", "idle")] if tabs else []))
     if tabs:
@@ -361,10 +391,11 @@ def main():
     target = config_dir()
     # Asking is for a person at a terminal. An option, a pipe or a CI runner
     # means someone already decided, so nothing is asked and nothing blocks.
+    installed = installed_state(target)
     if not decisive and sys.stdin.isatty():
-        chosen = interview(installed_state(target))
+        chosen = interview(installed)
     else:
-        chosen = parse(decisive)
+        chosen = parse(decisive, installed)
 
     python = sys.executable or "python3"  # resolving "python3" guesses wrong on Windows
     settings = target / "settings.json"
@@ -440,9 +471,8 @@ def main():
         print("Kaizen: /kaizen appears once Claude Code has restarted -- a skills")
         print("directory that did not exist at startup is not watched.")
     if merged != current:
-        print("Done. Restart Claude Code itself: settings.json is read at startup,")
-        print("and reloading the editor window reconnects to existing terminals")
-        print("rather than restarting them.")
+        print("Done. Hooks and the status line are picked up by running sessions;")
+        print("the env block and a new skills directory are read at startup only.")
     else:
         print("Done. Files only -- settings.json was already correct.")
 

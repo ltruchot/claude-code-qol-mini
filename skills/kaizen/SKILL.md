@@ -33,6 +33,8 @@ Throw out on sight:
 - anything you can't state in three lines — if it's fuzzy now, it's dead weight
   later
 - anything whose only effect is to make the file longer
+- a story with no directive in it. The incident is not the finding; the rule you
+  deduce from it is. No rule, no finding.
 
 Finding nothing is the normal outcome. Say so and skip to step 5.
 
@@ -40,13 +42,18 @@ Finding nothing is the normal outcome. Say so and skip to step 5.
 
 | Target | For |
 |---|---|
-| this project's `CLAUDE.md` | a constraint specific to this repo |
-| a skill — name it, say whether it exists | a lesson that outlives this repo |
+| this project's `CLAUDE.md`, its traps section | a generic shell, git, container or CI trap: anything that bites regardless of what you were working on |
+| this project's `CLAUDE.md`, another section | a rule of this repo, or a dated decision by its owner |
+| a skill of this project — name it and the section | a trap or fact tied to one tool or workflow of a domain (test harness, editor, images, SEO, deployment): something you only need when doing that |
+| the project's ops log (`LEADS.md` or equivalent) | a fact about the environment or production |
+| `TODO.md` / a ticket | work to do, not a rule |
 | `README` or docs | something a user of the project needs |
 | a code comment | a trap you can't see from where it bites |
 
 Never `~/.claude/CLAUDE.md`. A lesson too general for one repo becomes a skill;
-it doesn't move up a level.
+it doesn't move up a level. And never a "traps" skill: a skill is loaded when a
+task needs a competence; a trap is what you didn't expect, so it must be in what
+is always loaded, or next to the tool it belongs to.
 
 Open the file and read the whole thing. Then decide:
 
@@ -55,19 +62,28 @@ Open the file and read the whole thing. Then decide:
 - **it says the opposite** → that's the finding: name the conflict and say which
   side should win
 - **it has a section for this** → put it there; don't open a new one
+- **it says it three times** → that's a finding too: keep one line, mark it
+  **important** or **mandatory**, cut the others in the same edit
+
+Before writing, `grep` the target for the parade you are about to add. The trap
+rarely comes back with the same words; search for the command, the flag, the
+error text.
 
 ## 3. Write it the way the file is written
 
 - Same language as the file. A French `CLAUDE.md` gets French.
 - Same vocabulary, same headings, same person, same tense.
 - Telegraphic. No metaphors, no story, no wind-up, no "note that".
-- Name the trigger, then the action, in the imperative.
-- Two to five lines. Longer means you haven't found the point yet.
-- Watch the net length: if your line makes an older one redundant, cut the old
-  one in the same edit.
-
-Shape it as **when X, do Y — not Z.** Bring in the evidence only where it's what
-makes Y believable.
+- Directive only: **symptom → cause → parade**, or **when X, do Y — not Z**. A
+  table row when the section is a table.
+- No date, no figure, no file name of the incident, no "how we knew". The proof
+  goes in the commit message of the amendment, never in the file: git keeps it,
+  the file doesn't have to.
+- One to three lines. Longer means you haven't found the point yet.
+- Watch the net length. A project `CLAUDE.md` is loaded every session and stays
+  under about 500 lines: an amendment that would cross that removes as much as
+  it adds. If your line makes an older one redundant, cut the old one in the
+  same edit.
 
 ## 4. One at a time
 

@@ -218,6 +218,9 @@ The README states this. Do not claim more.
 ./uninstall.sh           # removes what was installed, nothing else
 ```
 
+`test.sh` embeds heredocs delimited `PY`. A script that edits it runs from a file,
+or uses a delimiter that cannot appear in its body — never `<<'PY'`.
+
 A change is delivered when it is installed: `~/.claude` holds a copy, and editing the
 repo changes nothing on screen. `CLAUDE_CONFIG_DIR` points any script at a throwaway
 directory.

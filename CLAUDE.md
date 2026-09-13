@@ -185,6 +185,8 @@ that is not a console, it asks nothing. A prompt that blocks a script or CI is a
 - To interrupt a running tool, accept its permission prompt first: Esc on the dialog
   is a rejection and the tool never runs.
 - Verify a negative result before concluding.
+- Check a doc claim with `curl -sL https://code.claude.com/docs/en/<page>.md` and
+  `grep`, never a fetched summary: summaries truncate and report ABSENT.
 
 ## Verified, and not
 

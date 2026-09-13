@@ -6,9 +6,8 @@ line payload (https://code.claude.com/docs/en/statusline#context-window-fields).
 That object reads 0 before the session's first API response and right after
 /compact, so a count is recovered from the session transcript in those windows
 rather than showing a placeholder. The transcript scan stops at the compaction
-boundary: past it lie the turns that were just summarized away, and reporting
-one of those is how the readout used to sit on its pre-compact figure until the
-next API response replaced it.
+boundary: past it lie the turns that were summarized away, whose figure no
+longer describes the context.
 
 Thresholds come from --warn and --alert when the installer wrote them into the
 status line command, from CC_CONTEXT_WARN and CC_CONTEXT_ALERT otherwise. The

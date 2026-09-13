@@ -5,13 +5,10 @@ Compaction is the moment a session's hard-won detail is about to be summarized
 away, which makes it the right moment to ask what should outlive it.
 
 The review itself happens in the `kaizen` skill, not here, and that split is
-forced by the runtime rather than chosen. A PreCompact hook cannot hand Claude
-any work: `exit 2` blocks the compaction and shows stderr TO THE USER -- the
-reference says so in as many words, and the binary throws an error out of the
-compaction path rather than resuming the conversation. An earlier version of
-this hook printed a review brief on stderr and assumed Claude would act on it.
-Claude never saw a word of it. Every review that appeared to work was one the
-user had asked for in their next message.
+forced by the runtime. A PreCompact hook cannot hand Claude any work: `exit 2`
+blocks the compaction and shows stderr TO THE USER, and the binary throws out
+of the compaction path rather than resuming the conversation. Claude never
+reads this hook's stderr.
 
 So the two lines stderr carries are addressed to the user, and they name the
 command that does the work: /kaizen. The skill runs the review in conversation,
@@ -46,8 +43,8 @@ CONFIG_DIR = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR", pathlib.Path.home(
 STATE_DIR = CONFIG_DIR / "state"
 STALE_AFTER_SECONDS = 7 * 24 * 3600
 
-# Tokens from superseded versions of this hook, swept but never honored, so an
-# upgrade does not leave files behind that nothing will ever consume.
+# Token names from past releases: swept, never honored, so no file is left
+# that nothing will ever consume.
 LEGACY_GLOBS = ("friction-*.done", "friction-*.guard")
 
 BLOCKED = ("Compaction held back: this session's friction has not been reviewed.\n"

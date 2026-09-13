@@ -8,8 +8,7 @@ import shutil
 import sys
 
 # What is ours, and where it is registered, is defined once, in install.py. A
-# second copy here drifted: three events added to the installer never reached
-# this list, and an uninstall left their hooks pointing at deleted files.
+# copy here would drift and leave hooks pointing at deleted files.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from install import without_ours  # noqa: E402
 

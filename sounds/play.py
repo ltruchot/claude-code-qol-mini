@@ -71,7 +71,7 @@ def ends_on_question(data):
     teammates and dialogs -- `agent_needs_input` is emitted for a teammate or a
     computer-use prompt, never for the main session asking something in prose.
     So a turn that ends on a question is a plain `Stop`, indistinguishable from
-    a finished answer, and it used to ring the end-of-turn sound and rest.
+    a finished answer without this rule.
 
     `last_assistant_message` is the only signal, and the reference points at it
     for exactly this: hooks needing the final text of the turn should read it

@@ -42,8 +42,8 @@ fi
 
 echo
 echo "Context after compaction"
-# The turns above a compact_boundary were just summarized away. Reporting one of
-# them is how the readout used to stay on its pre-compact figure.
+# The turns above a compact_boundary were summarized away: the readout must not
+# report one of them.
 TR="$(mktemp)"
 printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":89000,"cache_read_input_tokens":748}}}' > "$TR"
 printf '%s\n' '{"type":"system","subtype":"compact_boundary","compactMetadata":{"trigger":"manual","preTokens":89748,"postTokens":9310}}' >> "$TR"
@@ -215,8 +215,8 @@ if [ ! -e "$INST/skills/kaizen" ]; then
 else
     echo "  FAIL  skill survived uninstall"; failures=$((failures + 1))
 fi
-# Every event the installer writes to has to be on the uninstaller's list too.
-# Three of them were not, and an uninstall left hooks pointing at deleted files.
+# Every event the installer writes to is purged by the uninstaller, or its hooks
+# stay behind pointing at deleted files.
 if python3 -c "
 import json, sys
 data = json.load(open('$INST/settings.json'))
@@ -278,9 +278,8 @@ else
     echo "  FAIL  a custom sound was regenerated"; failures=$((failures + 1))
 fi
 
-# Options change one thing and leave the rest as installed. The README's own
-# update command, a bare --replace, used to purge the tab marker because the
-# parser started from the defaults, where the marker is off.
+# Options change one thing and leave the rest as installed: a bare --replace,
+# the README's update command, keeps the tab marker.
 says "a threshold is set"            "updated"        --warn 120000
 says "--replace alone keeps the marker" "Nothing changed" --replace
 if grep -q 'tab-state.py' "$IDEM/settings.json" && grep -q -- '--warn 120000' "$IDEM/settings.json"; then
@@ -334,8 +333,8 @@ if printf '%s' "$out" | grep -q '(idle) demo'; then
 else
     echo "  FAIL  marker override"; failures=$((failures + 1))
 fi
-# A control character in the folder name would make the runtime drop the whole
-# field in silence, and a trailing separator used to leave an empty label.
+# A control character in the folder name makes the runtime drop the whole field
+# in silence, and a trailing separator must not leave an empty label.
 if python3 -c "
 import json, subprocess, sys
 for cwd, want in (('/tmp/de\x1bmo\x07/', 'demo'), ('/tmp/demo/', 'demo')):

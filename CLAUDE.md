@@ -1,461 +1,221 @@
 # Instructions — `claude-code-qol-mini`
 
-A quality-of-life kit for Claude Code, published at `ltruchot/claude-code-qol-mini`
-(formerly `vscode-comfy-claude-config`; GitHub redirects the old URL). It has to work
-on **Linux, macOS, WSL and Windows**, in **VS Code and Cursor**.
+A quality-of-life kit for Claude Code, published at `ltruchot/claude-code-qol-mini`.
+It works on **Linux, macOS, WSL and Windows**, in **VS Code and Cursor**.
 
-**Vocabulary**: say *kit*, *setup*, or *hooks*; never *harness*. In this ecosystem a
-harness is the agent runtime itself (Claude Code is the harness), and the
-`awesome-claude-code` list already holds three projects named Harness that are
-workflows. "Comfort harness" reads to an English speaker as tack for a horse.
+**Purpose, which settles the trade-offs**: a model that is not working is a model you
+could hand something to. Every signal answers *is it running* first: green is
+activity, not rest. Show which session wants you; keep the others busy.
 
-**What it is for, which settles the trade-offs**: a model that is not working is a
-model you could hand something to. Every signal answers *is it running* before it
-answers anything else — hence green for activity, not for rest. Knowing at a glance
-which session wants you is half of it; keeping the others busy is the other half.
+**Vocabulary**: *kit*, *setup*, *hooks*. Never *harness*: in this ecosystem it means
+the agent runtime itself.
 
-**Language**: everything in this repo is written in **US English** — the README, the
-code, its comments, this file, and commit messages. The repo is public. Commits
-before September 2026 are in French; leave them.
+**Language**: US English everywhere — README, code, comments, this file, commit
+messages. The repo is public. Leave the older French commits as they are.
 
-**Style**: terse. No metaphors, no imagery, no wind-up. Name the trigger, then the
-action. Say what was measured and what was assumed. The README is tables and
-commands only: no reasoning, no adjectives. The why lives in this file.
-**Mandatory**: a code comment or the README states what is, never what was. No
-"an earlier version", "used to", "changed from X to Y": history belongs to git.
+**Style**: terse. No metaphors, no wind-up. Name the trigger, then the action. Say
+what is measured and what is assumed. The README is tables and commands only: no
+reasoning, no adjectives.
+**Mandatory**: this file, code comments and the README state what is and what must
+be, never what was. No "an earlier version", "used to", "changed from X to Y", no
+incident dates or counts. History and proof belong to commit messages.
 
 ## What the kit does
 
 | Feature | File | What you see |
 |---|---|---|
 | Context status line | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88/200k · my-project` |
-| Notification sounds | `sounds/play.py`, `sounds/generate.py` | two rising notes when Claude wants you, one low note when a turn or a `/compact` ends |
-| Tab marker | `hooks/tab-state.py` | 🟢 working (subagent and compaction included) · 🔴 blocked on you (red the moment a permission dialog appears) · 🟡 idle |
-| Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops and tells you to run `/kaizen`; once reviewed, it goes through |
+| Notification sounds | `sounds/play.py`, `sounds/generate.py` | two rising notes when Claude wants you, one low note when a turn or a manual `/compact` ends |
+| Tab marker | `hooks/tab-state.py` | 🟢 working (subagents, background tasks, compaction) · 🔴 blocked on you · 🟡 idle |
+| Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops until `/kaizen` has run |
 
-Install with `install.py` (`install.sh` / `install.ps1` wrap it), uninstall with the
-symmetric script, set the editor with `install-vscode.py`, check with `test.sh`.
+`install.py` installs (`install.sh` / `install.ps1` wrap it), `uninstall.py` removes,
+`install-vscode.py` sets the editor, `test.sh` checks.
 
-With no arguments and a real terminal, `install.py` **asks**: gauge and its two
-thresholds, sounds, kaizen, tab marker. Pass any option — or give it a `stdin` that
-is not a terminal — and it asks nothing. A prompt that blocks a CI runner is a bug.
+With no option and a real console, `install.py` asks. With any option, or a stdin
+that is not a console, it asks nothing. A prompt that blocks a script or CI is a bug.
 
-## Constraints you cannot guess from the code
+## Constraints
 
-Each one cost something in a real session.
+### Hook output
 
-### `terminalSequence` is a ROOT field of a hook's output
+- `terminalSequence` is a **root** field. Inside `hookSpecificOutput` it is ignored
+  with no error. Keep the `test.sh` check that requires it at the root.
+- Only OSC 0/1/2/9/99/777 and BEL pass. One byte outside the allowlist drops the
+  whole field silently: strip control characters from anything interpolated.
+- It is applied in interactive sessions only, never under `-p` or the Agent SDK.
+- A hook has no terminal: `/dev/tty` is unreachable. `terminalSequence` is the only
+  way to write to it.
+- Stdout on `UserPromptSubmit` that is not strict JSON is injected into the
+  conversation. Print JSON or nothing.
+- When behavior contradicts the published schema, trust the behavior and read the
+  binary with `grep -a`. Without `-a`, grep reports nothing on a binary.
 
-An earlier version of the published schema showed it inside `hookSpecificOutput`.
-**The runtime reads it at the root** (`if (e.terminalSequence)`). Nested, it is
-**ignored silently**: no error, no warning. Checked 2026-09-07: the reference now
-lists it among the universal fields, at the root, with the allowlist, and says "use
-this instead of writing to `/dev/tty`". `CLAUDE_CODE_DISABLE_TERMINAL_TITLE` is in
-`env-vars.md`. Do not write that the docs are wrong on this; they were, once.
+### The tab marker needs three things, and none reports its absence
 
-Measured before the fix: **eleven invocations, four event types, the right sequence
-produced every time, nothing on screen.** A correct producer whose output goes
-nowhere looks exactly like an unimplemented feature.
+1. `"terminal.integrated.tabs.title": "${sequence}"` in the editor.
+2. `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` in the `env` block: Claude Code redraws its
+   own title continuously and wins otherwise.
+3. The root-level `terminalSequence`.
 
-*Do*: keep the `test.sh` check that requires the field at the root and **absent**
-from `hookSpecificOutput`. Only **OSC 0/1/2/9/99/777 and BEL** pass the runtime's
-allowlist.
-*Don't*: trust a published schema when the behavior contradicts it. Read the binary
-(`grep -a`). And date any claim about the docs: they move.
+- The marker is a character in the tab **name**. The tab icon and its color cannot be
+  set: only the extension that creates a terminal can, at creation.
+- No animation: hooks fire on events, not on a clock.
+- No "session ended" state: nobody sees it. `SessionEnd` stays in `EVENTS` with no
+  handler, so the purge clears it from any config.
+- `${sequence}` retitles **every** terminal, a shell tab included. Hence
+  `--tab-state` is opt-in, and `install-vscode.py --revert` exists.
 
-### The tab marker needs THREE things at once
+### Reload
 
-1. `"terminal.integrated.tabs.title": "${sequence}"` in the editor — without it the
-   tab is titled after the process name and no sequence ever shows.
-2. `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` in the `env` block. **Claude Code emits its
-   own OSC 0 title — an animated spinner plus the conversation name — and redraws it
-   continuously**, so it always wins against ours.
-3. The root-level field, above.
+- Hooks and `statusLine` in `settings.json` reload without a restart.
+- The `env` block and a skills directory created after startup need a new session.
+- Reloading the editor window restarts nothing: it reconnects to the same processes.
+- Do not ask for a restart beyond those two cases.
 
-Miss one and nothing appears. **None of the three reports its absence.**
+### PreCompact hands Claude nothing
 
-*Don't*: try to color the tab **icon**. VS Code exposes no sequence for the icon or
-its color; only the extension that created the terminal can set them, **at creation
-time**. The request to Anthropic (issue 56925) is closed as "not planned" for that
-reason. The marker is a character in the **name**, never a dot on the icon.
+- `exit 2` blocks the compaction and shows stderr to the **user** only. It never
+  reaches the conversation.
+- `PreCompact` accepts no `additionalContext`. `PostCompact` has no decision control.
+- So stderr is two lines addressed to a human, naming `/kaizen`. The review lives in
+  the skill, never in the hook.
+- Read the exit-code table by row: stderr goes to Claude on `PreToolUse`, `Stop`,
+  `PostToolUse`, not on `PreCompact`, `SessionStart`, `SubagentStart`,
+  `PostModelSwitch`.
+- Automatic compaction is never blocked, and no review is possible on it.
+- The release token is keyed on the working **directory**, not the session: the
+  skill writes it from a plain shell, a manual `/kaizen` arms the next `/compact`,
+  and one project's review does not release another's.
+- A lesson goes to the repo's `CLAUDE.md` or to a named skill. Never to
+  `~/.claude/CLAUDE.md`.
 
-*Don't*: expect animation. Hooks fire on events, not on a clock, so the marker is a
-stable state. Same reason Claude Code has to be silenced: only something that redraws
-continuously can animate.
+### One marker per event
 
-*No "session ended" state*: observed in use, it never shows, or shows for a few
-milliseconds. Likely cause — the shell repaints its own title as soon as Claude Code
-returns the prompt — **unverified**. What is certain is that nobody sees it, and a
-state nobody sees is not worth carrying. `SessionEnd` stays in `EVENTS` with no
-handler: the purge is what removes it from older installs.
+- Hooks on one event run concurrently and each sequence is applied: two markers on
+  one event race. Register one `terminalSequence` emitter per event.
+- `PreCompact` belongs to `precompact-kaizen.py`, the only hook that knows whether
+  compaction runs: green if it passes, red if held back. It imports `hook_output()`
+  from `tab-state.py` through `--marker`. Without kaizen, `tab-state.py` takes
+  `PreCompact`; without the marker, no `--marker`.
+- On the blocking path the sequence is applied before the exit status is read.
+- `PostCompact` matches `manual` only: an automatic compaction happens mid-turn.
 
-*What it costs, and the cost is real*: `${sequence}` applies to **every** terminal. A
-zsh tab stops showing `zsh` and shows `user@host:/some/long/path`. Hence `--tab-state`
-as an option rather than a default, and `install-vscode.py --revert`.
+### When green is set
 
-### `settings.json` is re-read hot, its `env` block is not
+- No event fires when the model starts thinking. Reclaim green on `UserPromptSubmit`,
+  `PostToolBatch` and `SubagentStop`, the last moments before work resumes.
+- Subagents fire `PostToolBatch` on their own loop, after the main thread's `Stop`.
+  Only the main thread paints green: skip `working` when `agent_id` or `agent_type`
+  is present. Red from a subagent stays.
+- `Stop` with a non-empty `background_tasks` or `session_crons` stays green and
+  silent: the session wakes itself. The registry can lag by one task at the instant
+  it settles; do not treat it as exact.
 
-Measured: a session started at 09:58 fired hooks installed at 14:29. **Hooks reload
-without a restart.** The `env` block is read at startup, which is why the installer
-asks for a new session only for `--tab-state`.
+### When red is set
 
-*Don't*: ask for a full restart out of reflex. And note that **reloading the editor
-window restarts nothing**: the server reconnects to the existing processes.
-
-### A hook has no terminal, and its `stderr` is read by the user
-
-`/dev/tty` is not reachable from a hook. That is what `terminalSequence` is for: it
-makes Claude Code write on the hook's behalf.
-
-### A `PreCompact` hook can hand Claude NOTHING
-
-The most expensive constraint here, because it is invisible: the mechanism *looks*
-like it works.
-
-The reference says it in as many words: *"Exit with code 2 to block compaction. For a
-manual `/compact`, the stderr message is shown to the **user**."* The binary agrees —
-the blocking function logs, then throws out of the compaction path. It never returns
-to the conversation:
-
-```js
-n(`Compaction blocked by PreCompact hook: ${e.blockedBy}`,{level:"warn"});
-… throw new R0(`${z5e}: ${e.blockedBy}`)
-```
-
-There is no back door: `PreCompact` does **not** accept `additionalContext` (only
-root-level `decision`/`reason`), and `PostCompact` carries no decision at all.
-
-*What that produced*: the first version printed its whole review brief on `stderr`
-and assumed Claude would read it. **Claude never saw a line of it.** Every review
-that appeared to work was one the user had asked for in their next message. The
-mechanism never fired once on its own, and nothing said so.
-
-*Do*: treat `stderr` as what it is — **two lines addressed to a human**, naming the
-command to type. The work lives in a **skill** (`/kaizen`) the user invokes, never in
-the hook.
-
-*Don't*: read "exit 2 sends stderr back to Claude" off the exit-code table. That
-holds for `PreToolUse`, `Stop`, `PostToolUse` — **not** for `PreCompact`,
-`SessionStart`, `SubagentStart`, `PostModelSwitch`, where the per-event table says
-*shows stderr to user only*. Read the table by row.
-
-A lesson has two possible destinations: the `CLAUDE.md` of the repo it concerns, or a
-named **skill**. Never `~/.claude/CLAUDE.md` — a lesson too general for one repo
-becomes a skill, it does not move up a level. Loïc's call: a user-level file applies
-to every project without having been chosen for any of them.
-
-### No turn brackets a compaction, and an event's hooks run concurrently
-
-Nothing else moves the marker during a `/compact`: `Stop` already fired, and
-`UserPromptSubmit` does not fire on a built-in command. The tab used to sit yellow
-through minutes of work. `PreCompact` turns it green, `PostCompact` returns it to
-yellow and rings the end.
-
-*Do*: match `manual` on `PostCompact`. An automatic compaction fires mid-turn and the
-work continues after it — ringing there is the beep for nothing, already fixed once
-for subagents.
-
-*Don't*: register two hooks that emit a `terminalSequence` on the same event. The
-runtime starts them all and waits for the set (`await Promise.all`), applying each
-one's sequence: two markers on one event race, and the last to land wins.
-
-Hence the `PreCompact` wiring: one hook, and it is `precompact-kaizen.py`, the only
-one that knows whether the compaction will happen. It imports `hook_output()` from
-`tab-state.py` through the path the installer passes as `--marker`. Green if it lets
-the compaction run, **red if it holds it back** — a held-back compaction is the
-definition of blocked on you. Without kaizen, `tab-state.py` takes `PreCompact`;
-without the tab marker, no `--marker` and nothing is emitted.
-
-*Verified in the binary*: on the blocking path the JSON output is parsed and the
-sequence applied **before** the exit status is looked at. `exit 2` and a marker are
-not mutually exclusive.
-
-*Not yet observed*: what the dim post-compaction line now shows. It repeats each
-hook's `stdout` (`PreCompact [...] completed successfully: …`), so our JSON will
-probably land there. The online docs are silent; they only say that for most events
-`stdout` goes to the debug log. Check at the next `/compact`: if it is unreadable,
-drop the `PreCompact` marker and leave the rest.
-
-### Nothing fires when the model starts thinking
-
-The documented cycle is `PreToolUse`, the tool, `PostToolUse`, `PostToolBatch`,
-then the model call, then `Stop`. There is no event before the model call, so
-"he is thinking now" cannot be observed directly. A long think with a short
-answer is invisible to hooks.
-
-Green therefore has to be reclaimed at the last moment before work resumes:
-`UserPromptSubmit` at the start of a turn, `PostToolBatch` before every
-subsequent model call, `SubagentStop` when the orchestrator picks back up.
-
-*What it fixes*: a permission prompt or a question sets red, you answer, and
-until this was wired nothing set green again. The tab stayed red for the whole
-answer, which is the one case where the marker was actively lying.
-
-*Cost*: `PostToolBatch` fires once per tool batch, so a tool-heavy turn spawns
-the hook dozens of times. Each run is a bare `json`/`os`/`sys` import and one
-line of output. Re-asserting a title that is already set costs nothing on
-screen.
-
-*And it fires inside subagents.* Measured with a probe on the installed hook,
-three sessions at once: a subagent's own loop fires `PostToolBatch` carrying
-`agent_id`/`agent_type`, and those keep landing **after** the orchestrator's
-`Stop`. The tab rang the end-of-turn sound, went yellow, then went back to
-green seconds later. Only the main thread paints green now; red is left alone,
-because a subagent asking for input is a real block on you.
-
-The same probe showed the in-flight registry lagging: a `SubagentStop` payload
-listed its own subagent as `status: "running"`. Do not treat
-`background_tasks` as exact at the instant a task settles.
-
-### `permission_prompt` is six seconds late; `PermissionRequest` is not
-
-From the reference: `permission_prompt` is emitted "only after the prompt has waited
-about six seconds", each keystroke defers it, and "to run a hook immediately when
-Claude asks for permission, use `PermissionRequest`". That event honors
-`terminalSequence`, ignores exit 2, and a hook that returns no `decision` leaves the
-dialog to the user. So the marker goes red on `PermissionRequest` and the sound keeps
-`Notification`: the gate is what stops it ringing at someone already looking.
-
-Also wired from the reference, **not yet observed**: `quota_auto_resume_stale` and
-`quota_auto_resume_disabled` (red, needs-you), `quota_auto_resume_fired` (green),
-`StopFailure` (red, no sound; it ignores everything but the sequence). If one of them
-misbehaves in a session, unwire it in `settings_for()` and say so here.
-
-### Nothing announces a turn that ends on a question
-
-The notification types cover permissions, teammates and dialogs.
-`agent_needs_input` is emitted for a teammate or a computer-use prompt, never
-for the main session asking something in prose. A turn ending on "yes or no?"
-is a plain `Stop`, indistinguishable from a finished answer: it rang the
-end-of-turn note and went yellow, while a permission prompt in the next tab
-went red correctly.
-
-`last_assistant_message` on `Stop` is the only signal, and the reference points
-at it for this: hooks needing the final text of the turn should read it rather
-than the transcript, which lags the turn that just ended.
-
-*The rule*: the last non-empty line, stripped of markdown emphasis and closing
-brackets, ends with `?`. Then red, and the come-and-look note instead of the
-end-of-turn one. Background work still outranks it — the session wakes itself.
-
-*This is the only rule here that reads content rather than state*, so keep it
-narrow. It misses a question followed by a closing sentence. That is preferred
-to a red firing on any paragraph that holds a question mark.
+- `PermissionRequest` fires when the dialog appears; `permission_prompt` fires only
+  after about six seconds without a keystroke. Red rides `PermissionRequest`; the
+  sound keeps `Notification`, so it does not ring at someone already looking.
+- A turn ending on a question is a plain `Stop`. Rule: the last non-empty line of
+  `last_assistant_message`, stripped of markdown emphasis and closing brackets, ends
+  with `?` → red and `needs-you`. Background work outranks it. Keep it that narrow.
+- Wired from the reference, **not observed**: `quota_auto_resume_stale` and
+  `quota_auto_resume_disabled` red with sound, `quota_auto_resume_fired` green,
+  `StopFailure` red without sound. If one misbehaves, unwire it in `settings_for()`.
 
 ### Nothing fires when a turn is cut short
 
-Two ways a turn ends without finishing: you press Esc, or you refuse a permission
-prompt. **Neither emits a single hook.** The marker keeps whatever it had -- green
-if work was running -- and holds it until your next message.
+- Esc, or refusing a permission, emits no hook. The marker holds until the next
+  prompt. This is a known gap.
+- `idle_prompt` does not rescue it: an interrupt leaves the last completion time
+  untouched, and the idle check returns on exactly that.
+- Not usable: `StopFailure` (API errors only), `PermissionDenied` (auto-mode
+  classifier only), the status line (runs on a clock but cannot write to the
+  terminal).
+- Open: `PostToolUseFailure.is_interrupt` may fire when a running tool is aborted.
+  Unmeasured, and it would cover that one case only.
+- A transcript watcher per session would close the gap. It is a process on a clock,
+  which this kit does not carry.
 
-Measured, in one session: a prompt at 00:28:24 set green, the permission prompt was
-refused at 00:28:30 (`toolDenialKind: "user-rejected"` in the transcript), and
-nothing followed. No `Stop`, no event of any kind. Reproduced at 00:31:19. An
-interrupt behaves the same: a prompt, then 2m15s of silence before the next one.
+### Installer
 
-*Don't* expect the idle notification to rescue it. The interrupt path calls
-`resetLoadingState()` and `abort("user-cancel")` and never `markQueryComplete`, so
-`lastQueryCompletionTime` is left untouched. `idle_prompt` -- the only timed event
-in the runtime, 60s by `messageIdleNotifThresholdMs` -- is guarded twice against
-exactly that value: it returns when it is `0`, which is the state after a `/clear`
-or in a fresh session, and again when the last interaction is more recent, which a
-keystroke that interrupts always is. Measured: not one `idle_prompt` in forty
-minutes across five sessions.
+- Hooks use exec form: `{"type": "command", "command": <python>, "args": [<script>,
+  <arg>]}`. The interpreter is `sys.executable`. No shell string, no Git Bash.
+- The sound player is Python (`winsound` on Windows): hooks run through PowerShell
+  there.
+- Every delivered file is created if missing, left if identical, and if different
+  **nothing at all is written** and the files are named. `--replace` overwrites.
+- `settings.json` is written, with a `.bak-` copy, only when the merge changes it.
+  Same for `uninstall.py`.
+- Sound files are never regenerated: users drop their own. `generate.py` skips an
+  existing file without `--force`.
+- Options overlay `installed_state()`: `--replace` alone keeps the installed options.
+  `--defaults` is the only reset. Each feature has both flags.
+- The installer purges its own handlers before adding the enabled ones.
+  `without_ours()` is shared with `uninstall.py`. When a delivered file is renamed,
+  add the old name to `OURS` and `SUPERSEDED`.
+- An editor `settings.json` is JSONC: insert the key textually, never parse and
+  reserialize.
 
-Three doors that look open, and are not:
+### Windows
 
-- **`StopFailure`** carries API errors only -- the enum runs
-  `authentication_failed` to `max_output_tokens`. Nothing about the user.
-- **`PermissionDenied`** fires on one branch, guarded on
-  `decisionReason.classifier === "auto-mode"`. It is the classifier refusing, never
-  a human on the dialog.
-- **The status line** is the only thing here that runs on a clock -- about once a
-  second, measured. It still cannot paint: `/dev/tty` raises `OSError`, all three
-  descriptors are non-tty, and an OSC 0 in its stdout is dropped. Emitted for two
-  minutes as `TITLE-TEST`: never seen in a tab, and never printed as text either.
+- Hook paths are written with backslashes: `is_ours()` normalizes separators before
+  matching.
+- `sys.stdin.isatty()` is true for `NUL`: use `stdin_is_console()`
+  (`GetConsoleMode`).
+- `python.exe` may be the Microsoft Store stub, which exits 9009. The `.ps1` wrappers
+  run each candidate before trusting it, with errors set to `Continue`: under
+  PowerShell 5.1 a native command writing to stderr is terminating under `Stop`.
+- Keep the Windows job in `.github/workflows/test.yml`: it is the only place the
+  native path runs.
 
-*Left open*: `PostToolUseFailure` carries `is_interrupt`, and it does reach a hook
--- measured five times, all `is_interrupt: false`, ordinary exit-1 failures. Whether
-it survives the abort of a **running** tool is unmeasured; the runtime dispatches it
-on the already-aborted signal and counts the cancellations
-(`tengu_post_tool_failure_hooks_cancelled`). Even if it fires, it covers an
-interrupt during a tool and nothing else -- not a refused permission, not an Esc
-while the model is thinking.
+### Status line
 
-### The release token is keyed on the DIRECTORY, not the session
+- The gauge and the fraction share one denominator, the **alert threshold**, not the
+  window: on a 1M model a window-relative bar is near empty when the alert matters.
+- The unit sits on the denominator only: `0k/200k` reads as "Ok".
 
-The skill has to write it from a plain shell, and it knows **where** it is far better
-than **who** it is. Two consequences, both wanted: running `/kaizen` by hand arms the
-next `/compact`, and a review done in one project does not unblock compaction in
-another — a collision actually observed, two sessions overwriting the same state file.
+## Method
 
-### Hooks are registered in exec form, never as a shell string
+- Instrument the installed copy in `~/.claude/hooks/`: scripts are re-read on each
+  call, so a probe works without restart. Remove it and check `git status` after.
+- Wake another session with `SendMessage` to make its hooks fire.
+- `/proc/PID/environ` cannot show a variable set by `settings.json`.
+- To interrupt a running tool, accept its permission prompt first: Esc on the dialog
+  is a rejection and the tool never runs.
+- Verify a negative result before concluding.
 
-`{"type": "command", "command": <interpreter>, "args": [<script>, <arg>]}`.
+## Verified, and not
 
-That is what makes a path with spaces — `C:\Program Files\…`, ordinary on Windows —
-work the same everywhere, with no dependency on Git Bash. The interpreter is
-`sys.executable`, the one that ran the installer: it exists by construction, where
-resolving `python3` would pick the wrong thing on Windows.
+| Where | What |
+|---|---|
+| This machine: terminal and Claude Code in WSL2, Cursor on Windows | install, update, uninstall with user settings preserved; purge of disabled options; tab marker on screen; `test.sh` |
+| CI: Linux, macOS, Windows, Python 3.8 | install, update, uninstall; `test.sh` on Linux and macOS |
+| Never | native Linux editor path, `afplay`, `winsound`, macOS and Windows editor paths, sounds heard anywhere but WSL |
 
-Same reason **the sound player is Python** and not shell: on Windows without Git
-Bash, Claude Code runs hooks through PowerShell. `winsound`, from the standard
-library, gives Windows audio with no external player.
-
-### An installer overwrites nothing: it creates, it leaves, or it refuses
-
-`install.py` computes everything it would write, then compares. Three outcomes and no
-others: the file is missing, it writes it; identical, it leaves it; different, **it
-writes nothing at all** — not that file, not the others, not `settings.json` — names
-the files and returns. `--replace` is the only way to overwrite.
-
-The reason: an installer cannot tell an old version from a deliberate edit. And a
-partial refusal would be worse than overwriting, hence the full plan before any
-write: a refused run leaves nothing half-installed.
-
-`settings.json` is rewritten only if the merge actually changes it — otherwise no
-write, and **no extra `.bak-`**. A second identical install prints one line and stops.
-`uninstall.py` follows the same rule.
-
-*Don't*: regenerate the sounds. The README invites you to drop your own WAV over
-them, so `generate.py` skips a file that is already there and needs `--force` to
-overwrite. The version before this recreated them on every install and silently undid
-that.
-
-### An installer that adds must also remove
-
-`install.py` purges **its own** handlers before laying back the enabled ones,
-otherwise turning a feature off leaves its hooks behind. Observed on a real config,
-not assumed.
-
-The `OURS` list also carries `sounds/play.sh`, the **old** shell player: without that
-migration marker, an update left two orphan hooks pointing at a deleted file.
-
-*Do*: when a delivered file is renamed, add the old name to `OURS`.
-
-### Windows is not Linux with backslashes: three things CI caught on day one
-
-All three measured on `windows-latest`, none on this machine.
-
-- **The purge matched on `hooks/tab-state.py`; the installer writes the path with
-  backslashes.** Nothing was ever purged there: every install appended its hooks
-  again and uninstall left them all. `is_ours()` normalizes separators first.
-- **`sys.stdin.isatty()` is `True` for `NUL`.** A step with `stdin=DEVNULL` got the
-  interview. `stdin_is_console()` asks `GetConsoleMode`, which fails on NUL and pipes.
-- **`python.exe` exists on a fresh Windows, and it is not Python**: the Microsoft
-  Store alias prints "Python was not found" and exits 9009. `Get-Command` reports it
-  as a command. The `.ps1` wrappers run each candidate once before trusting it, with
-  errors set to `Continue`: under PowerShell 5.1, a native command writing to stderr
-  is a terminating error when the preference is `Stop`. Reproduced through
-  `powershell.exe` from WSL.
-
-*Do*: keep the Windows job in `.github/workflows/test.yml`. It is the only place the
-native path runs.
-
-### An editor's `settings.json` is JSONC
-
-It can hold comments and trailing commas. Parsing and reserializing would drop them
-silently. `install-vscode.py` inserts the key **textually** after the opening brace
-and leaves the rest byte for byte. Tested against a fixture with a line comment, a
-block comment and a trailing comma: all three survive.
-
-### The status line gauge targets the THRESHOLD, not the window
-
-On a 1M model, 200k is 20% of the window: a window-relative gauge would be nearly
-empty at the exact moment the alert has to show. Bar and fraction share one
-denominator — `250/200k` is the signal. The unit sits on the denominator alone,
-because `0k/200k` reads as the word "Ok" before it reads as a count.
-
-## Method: how these were found
-
-- **Instrument the installed copy, not the repo.** Hook scripts are re-read on every
-  invocation, so a probe added to `~/.claude/hooks/…` takes effect **without a
-  restart**. That is what proved hooks were firing while nothing showed. Check
-  `git status` and remove the probe afterwards.
-- **Wake another session with `SendMessage`** to make its hooks fire without
-  disturbing the user.
-- **`grep -a` on a binary.** Without `-a`, `grep` stays quiet on a binary and a count
-  of zero reads as an absence: six strings reported as "0 occurrences" were all there.
-- **`/proc/PID/environ` is frozen at `exec`**: it cannot see a variable set by
-  `settings.json`, which Node applies in `process.env`. A check that uses it for that
-  proves nothing.
-- **To interrupt a running tool you must accept its permission prompt first.** Esc
-  on the dialog is a rejection -- `toolDenialKind: "user-rejected"` -- and the tool
-  never runs, so nothing tool-related can fire. Four attempts were spent before
-  reading the transcript field that says which of the two happened.
-- **Verify a negative result before concluding.** Twice in one session an
-  unsuccessful search was taken as proof of absence, and both times it was wrong.
-
-## What is verified, and what is not
-
-**Verified on this machine, a hybrid**: terminal and Claude Code in WSL2, Cursor on
-the Windows side, so the editor settings file patched is the Windows one under
-`/mnt/c/Users/…`. Native Linux, where the editor reads `~/.config/…`, has not been
-seen on screen either. Seen here: the
-install → reinstall with different options → uninstall cycle, preserving `model`,
-`permissions`, `enabledPlugins`, `autoMode` and hooks written by the user; the purge
-of disabled options; the tab marker **seen on screen**; the 85 checks in `test.sh`.
-
-**Run only in CI** (`.github/workflows/test.yml`): the install → update → uninstall
-cycle on macOS and Windows runners, and `test.sh` on Python 3.8. That exercises the
-installer, the merge and `sys.executable` quoting there — not `afplay`, not
-`winsound`, not the editor's settings location. Written from documented behavior. The
-README says so; do not let anyone believe the sounds were heard on three platforms.
+The README states this. Do not claim more.
 
 ## Open threads
 
-- **The marker format is still open.** Settable without touching the code through
-  `CC_TAB_WORKING`, `CC_TAB_BLOCKED`, `CC_TAB_IDLE` in the `env` block — emoji,
-  `[..]`, `(working)`. Emoji render correctly; what reads best in a list is untested.
-  The colors are settled: **green = running**, the state you want to see; **red is
-  spent on blocking only** — permission, question, choice — or it stops meaning
-  anything; **yellow for idle**. Orange was tried twice for idle and read as red from
-  across a tab strip, so the only safe distance from red is yellow.
-- **A warning triangle appeared on every tab** in the terminal list, absent from
-  earlier screenshots. Cause unknown, never investigated. The hover tooltip will say.
-- **The `auto` branch triggers no review, and that is final.** It went through
-  `additionalContext`; the reference shows `PreCompact` does not accept it and
-  `PostCompact` has no decision control. There is no way to trigger a review on an
-  automatic compaction. It passes, setting the green marker and nothing else.
-- **The full `/compact` with markers has not been seen yet.** Green at the start,
-  yellow and a sound at the end: wired, checked outside the runtime by `test.sh`,
-  never observed in a real session. Two things to watch at the next one: the dim
-  post-compaction line, which repeats each hook's `stdout` and will probably show our
-  JSON; and `PreCompact`'s `stdout`, which the binary feeds into the compaction
-  instructions (`newCustomInstructions`). If either is dirty, the `PreCompact` marker
-  comes out on its own — the sound and the yellow from `PostCompact` do not depend on
-  it.
-- **An interrupted turn could be caught by tailing the transcript.**
-  `LiveNL/tmux-claude-status-tabs` does it: a watcher per session reads the JSONL
-  and sees the `user-rejected` denial and the abort that no hook reports. It is a
-  process per session on a clock, which is exactly what this kit does not carry.
-  The lead, if the gap is ever worth closing.
-- **The full `/kaizen` path has not run for real**: the block has been seen and
-  `--release` is covered by `test.sh`, but the `/compact` → `/kaizen` → `/compact`
-  sequence remains to be observed in a session. Its three real passes each exposed a
-  defect: `stderr` dumped on screen, a token that proved nothing, then `stderr` not
-  reaching Claude at all.
+- Marker format: settable through `CC_TAB_WORKING`, `CC_TAB_BLOCKED`, `CC_TAB_IDLE`;
+  what reads best is untested. Colors are settled: green running, red blocking only,
+  yellow idle. Orange reads as red across a tab strip.
+- A warning triangle shows on every tab in the terminal list. Cause unknown.
+- A full `/compact` with markers is unobserved. Check the dim post-compaction line
+  and the compaction instructions for our JSON; if dirty, remove the `PreCompact`
+  marker only.
+- A full `/compact` → `/kaizen` → `/compact` sequence is unobserved.
 
 ## Testing
 
 ```bash
-./test.sh                           # 85 checks, installs nothing
-./install.sh --replace              # reinstalls the current options; an edited file makes it refuse without --replace
-./install-vscode.sh                 # sets the editor, then start a NEW session
-./uninstall.sh                      # removes what we laid down, and nothing else
+./test.sh                # installs nothing
+./install.sh --replace   # reinstalls the current options
+./install-vscode.sh      # then start a new session
+./uninstall.sh           # removes what was installed, nothing else
 ```
 
-A change is not delivered until it is installed. The repo is not the running
-kit: `~/.claude` holds a copy, and editing `statusline/context.py` here changes
-nothing on screen. When a change is meant to be visible, install it before saying it
-is done — the gauge was reported fixed while the old copy was still running.
-
-**Options overlay what is installed.** `parse()` starts from `installed_state()`, so
-`./install.sh --replace` alone reinstalls the current options and `--warn 120000` on a
-machine with the tab marker keeps the marker. Before this, it started from `DEFAULTS`
-and the README's own update command purged the marker. `--defaults` is the only reset.
-Each feature has both flags (`--sounds` / `--no-sounds`), so any state is reachable
-without the interview.
-
-`CLAUDE_CONFIG_DIR` points the install at a throwaway folder. That is how a full cycle
-is exercised without touching a real configuration.
+A change is delivered when it is installed: `~/.claude` holds a copy, and editing the
+repo changes nothing on screen. `CLAUDE_CONFIG_DIR` points any script at a throwaway
+directory.

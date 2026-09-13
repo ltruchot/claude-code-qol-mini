@@ -4,7 +4,7 @@
 Claude Code writes the sequence to the terminal on our behalf, through the
 documented `terminalSequence` field of the hook JSON output. That indirection
 is not a convenience: hooks run without a controlling terminal, so writing to
-/dev/tty ourselves is not an option -- measured, it does not exist there.
+/dev/tty ourselves is not an option: it does not exist there.
 
 VS Code renders this only when `terminal.integrated.tabs.title` contains
 ${sequence}. Claude Code emits its own OSC 0 title -- an animated spinner plus
@@ -31,15 +31,11 @@ import sys
 # own marker because "nothing is asked of you" and "answer me" are different
 # situations, and a red that fires for both stops meaning anything.
 #
-# Idle is yellow, not orange. Orange was tried twice and read as red from across
-# a tab strip: the eye catches the warm/cold split long before it resolves
-# orange from red, so the only safe distance from red is yellow.
+# Idle is yellow, not orange: orange reads as red from across a tab strip, so
+# the only safe distance from red is yellow.
 #
-# There is no marker for a session that has ended. Observed in use: it never
-# shows, or shows for a few milliseconds. The likely cause is the shell
-# repainting its own title the moment Claude Code hands back the prompt, but
-# that was not confirmed -- what is certain is that nobody ever sees the state,
-# and a state nobody sees is not worth carrying.
+# There is no marker for a session that has ended: the shell repaints its own
+# title when Claude Code hands back the prompt, so nobody would see it.
 MARKERS = {
     "working": os.environ.get("CC_TAB_WORKING", "\U0001F7E2"),  # green circle
     "blocked": os.environ.get("CC_TAB_BLOCKED", "\U0001F534"),  # red circle
@@ -78,7 +74,7 @@ def ends_on_question(data):
     teammates and dialogs -- `agent_needs_input` is emitted for a teammate or a
     computer-use prompt, never for the main session asking something in prose.
     So a turn that ends on a question is a plain `Stop`, indistinguishable from
-    a finished answer, and it used to ring the end-of-turn sound and rest.
+    a finished answer without this rule.
 
     `last_assistant_message` is the only signal, and the reference points at it
     for exactly this: hooks needing the final text of the turn should read it
@@ -106,9 +102,8 @@ def hook_output(state, cwd):
     event race, and only that one knows whether the compaction will happen.
 
     `terminalSequence` is a TOP-LEVEL field, not a member of hookSpecificOutput.
-    The published schema shows it nested; the runtime reads it from the root of
-    the object, so a nested one is silently ignored -- measured, eleven hook
-    invocations emitting a correct sequence that never reached the terminal.
+    The runtime reads it from the root of the object; a nested one is silently
+    ignored.
     Only OSC 0/1/2/9/99/777 and BEL pass the runtime's allowlist; OSC 0 is the
     title sequence used here.
     """
@@ -134,10 +129,9 @@ def main():
         data = {}
 
     # Only the main thread paints green. A subagent runs its own loop and fires
-    # its own PostToolBatch, and those keep landing after the orchestrator's
-    # turn is over: measured, a Stop that rang the end-of-turn sound was
-    # followed seconds later by a subagent batch that put the tab back to
-    # green. Red is left alone -- a subagent asking for input is a real block.
+    # its own PostToolBatch, and those land after the orchestrator's Stop:
+    # painting green there would undo the resting marker. Red is left alone --
+    # a subagent asking for input is a real block.
     if state == "working" and (data.get("agent_id") or data.get("agent_type")):
         return
 

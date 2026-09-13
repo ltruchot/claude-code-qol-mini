@@ -1,8 +1,6 @@
-# test.sh on Linux and macOS, the install/uninstall cycle on all three. The
-# macOS and Windows paths were written from documented behavior: this is the
-# only place they run at all, so a green matrix is what the README's
-# "verified" claim rests on for the installer. Audio and the editor are not
-# exercised here; nothing plays a sound on a runner.
+# test.sh on Linux and macOS, the install/uninstall cycle on all three. This is
+# the only place the macOS and Windows installer paths run. Audio and the
+# editor are not exercised: nothing plays a sound on a runner.
 name: test
 on: [push, pull_request]
 jobs:

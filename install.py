@@ -44,11 +44,9 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parent
 
-# Everything this installer owns, matched to prune stale hooks on re-run.
-# "sounds/play.sh" is the pre-Python shell player: kept here so that upgrading
-# from an older install removes its orphaned hook instead of leaving it behind.
-# "precompact-friction.py" is the pre-kaizen name of the same hook, kept for
-# the same reason.
+# Everything this installer owns, matched to prune its hooks on re-run.
+# "sounds/play.sh" and "hooks/precompact-friction.py" are names these scripts
+# had in past releases: matching them removes their orphaned handlers.
 OURS = ("sounds/play.py", "sounds/play.sh",
         "hooks/tab-state.py", "hooks/precompact-kaizen.py",
         "hooks/precompact-friction.py")
@@ -56,9 +54,9 @@ EVENTS = ("Notification", "Stop", "UserPromptSubmit", "SessionStart",
           "SessionEnd", "PreCompact", "PostCompact", "PostToolBatch",
           "SubagentStop", "PermissionRequest", "StopFailure")
 
-# Files we used to deliver under other names. Pruning their handlers is not
-# enough: the scripts themselves have to go, or an install leaves dead copies
-# in place next to the live ones.
+# Files from past releases, deleted on install. Pruning their handlers is not
+# enough: the scripts themselves have to go, or dead copies stay next to the
+# live ones.
 SUPERSEDED = ("hooks/precompact-friction.py", "sounds/play.sh",
               "state/friction-review.md")
 
@@ -77,8 +75,7 @@ def config_dir():
 def stdin_is_console():
     """True only for a person at a terminal.
 
-    On Windows, sys.stdin.isatty() is True for the NUL device as well, so a
-    CI step with stdin=DEVNULL got the interview (measured on windows-latest).
+    On Windows, sys.stdin.isatty() is True for the NUL device as well.
     GetConsoleMode succeeds on a real console handle and fails on NUL or a
     pipe, which is the distinction wanted here.
     """
@@ -101,9 +98,7 @@ def is_ours(handler):
     """True when a hook entry runs one of our scripts, whatever the separator.
 
     The match is on the path, and on Windows the installer writes it with
-    backslashes: "hooks/tab-state.py" never matched "...\\hooks\\tab-state.py",
-    so nothing was ever purged there and every install appended its hooks
-    again. Measured on windows-latest.
+    backslashes, so separators are normalized before comparing.
     """
     text = " ".join([handler.get("command", ""), *handler.get("args", [])])
     text = text.replace("\\", "/")
@@ -131,7 +126,7 @@ def without_ours(hooks):
 FLAGS = {"--statusline": ("statusline", True), "--no-statusline": ("statusline", False),
          "--sounds": ("sounds", True), "--no-sounds": ("sounds", False),
          "--kaizen": ("kaizen", True), "--no-kaizen": ("kaizen", False),
-         "--no-friction": ("kaizen", False),  # pre-skill name
+         "--no-friction": ("kaizen", False),  # alias of --no-kaizen
          "--tab-state": ("tabs", True), "--no-tab-state": ("tabs", False)}
 
 
@@ -139,9 +134,9 @@ def parse(argv, base):
     """Command-line options over `base`, the installed state. Exits on anything
     unrecognized.
 
-    Starting from what is installed rather than from DEFAULTS is what makes
-    `--replace` alone an update and not a reset: the README's own update
-    command used to purge the tab marker, because `tabs` defaults to False.
+    Starting from what is installed rather than from DEFAULTS makes `--replace`
+    alone an update and not a reset: `tabs` defaults to False, so a reset
+    would purge the tab marker.
     """
     if "-h" in argv or "--help" in argv:
         print(__doc__.strip())
@@ -397,8 +392,8 @@ def settings_for(chosen, target, python, data):
         # through however long the answer takes.
         add("PostToolBatch", [hook("hooks/tab-state.py", "working")])
         add("SubagentStop", [hook("hooks/tab-state.py", "working")])
-    # SessionEnd stays in EVENTS but gets no handler: an older install put a
-    # "stopped" marker there, and the purge above is what removes it.
+    # SessionEnd stays in EVENTS with no handler, so the purge above clears any
+    # handler of ours found there.
 
     # Compaction is a long stretch of work with no turn around it, so nothing
     # else moves the marker: without these two the tab sits idle for minutes

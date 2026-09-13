@@ -19,7 +19,10 @@ code, its comments, this file, and commit messages. The repo is public. Commits
 before September 2026 are in French; leave them.
 
 **Style**: terse. No metaphors, no imagery, no wind-up. Name the trigger, then the
-action. Say what was measured and what was assumed.
+action. Say what was measured and what was assumed. The README is tables and
+commands only: no reasoning, no adjectives. The why lives in this file.
+**Mandatory**: a code comment or the README states what is, never what was. No
+"an earlier version", "used to", "changed from X to Y": history belongs to git.
 
 ## What the kit does
 

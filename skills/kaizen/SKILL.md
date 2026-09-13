@@ -79,6 +79,8 @@ error text.
 - No date, no figure, no file name of the incident, no "how we knew". The proof
   goes in the commit message of the amendment, never in the file: git keeps it,
   the file doesn't have to.
+- In a code comment or a README, state what is, never what was: no "an earlier
+  version", "used to", "changed from X to Y". History belongs to git.
 - One to three lines. Longer means you haven't found the point yet.
 - Watch the net length. A project `CLAUDE.md` is loaded every session and stays
   under about 500 lines: an amendment that would cross that removes as much as

@@ -154,6 +154,7 @@ d = json.load(sys.stdin)
 assert 'terminalSequence' not in d, d
 h = d['hookSpecificOutput']
 assert h['hookEventName'] == 'SessionStart' and 'TODO.md' in h['additionalContext'], d
+assert 'todo/' in h['additionalContext'], d
 " 2>/dev/null; then
     printf '  ok    %-34s names TODO.md\n' "after compact, with TODO.md"
 else
@@ -188,6 +189,21 @@ if grep -q 'TODO.md' "$SKILL" 2>/dev/null; then
     echo "  ok    skill writes the TODO.md handoff"
 else
     echo "  FAIL  skill does not name TODO.md"; failures=$((failures + 1))
+fi
+# The handoff lines the skill proposes are the ones this repo carries at the top
+# of its CLAUDE.md: one wording, so a session reads the same rule everywhere.
+if python3 -c "
+import re, sys
+skill = open(sys.argv[1], encoding='utf-8').read()
+lines = re.findall(r'^ *(> Session handoff:.*\n *>.*)$', skill, re.M)
+assert len(lines) == 1, lines
+want = '\n'.join(l.strip() for l in lines[0].splitlines())
+head = open(sys.argv[2], encoding='utf-8').read().split('\n## ')[0]
+assert want in head, want
+" "$REPO/skills/kaizen/SKILL.md" "$REPO/CLAUDE.md" 2>/dev/null; then
+    echo "  ok    CLAUDE.md opens with the handoff lines"
+else
+    echo "  FAIL  CLAUDE.md and the skill disagree on the handoff lines"; failures=$((failures + 1))
 fi
 if python3 -c "
 import json, sys

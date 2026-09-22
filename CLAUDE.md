@@ -1,6 +1,7 @@
 # Instructions — `claude-code-qol-mini`
 
-> Session handoff: read `TODO.md` first. If it has content, a recent session stopped there and left what is needed to resume.
+> Session handoff: read `TODO.md` first — where the last session stopped, and what is left.
+> Open a `todo/` file only for the item you work on. An item done → delete its line and its `todo/` file.
 
 A quality-of-life kit for Claude Code, published at `ltruchot/claude-code-qol-mini`.
 It works on **Linux, macOS, WSL and Windows**, in **VS Code and Cursor**.
@@ -29,7 +30,7 @@ incident dates or counts. History and proof belong to commit messages.
 | Context status line | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88/200k · my-project` |
 | Notification sounds | `sounds/play.py`, `sounds/generate.py` | two rising notes when Claude wants you, one low note when a turn or a manual `/compact` ends |
 | Tab marker | `hooks/tab-state.py` | 🟢 working (subagents, background tasks, compaction) · 🔴 blocked on you · 🟡 idle |
-| Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops until `/kaizen` has run; `/kaizen` writes `TODO.md` first; after a compaction Claude is told to read it |
+| Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops until `/kaizen` has run; `/kaizen` first updates `TODO.md` (index) and `todo/` (one file per item needing context); after a compaction Claude is told to read `TODO.md` |
 
 `install.py` installs (`install.sh` / `install.ps1` wrap it), `uninstall.py` removes,
 `install-vscode.py` sets the editor, `test.sh` checks.

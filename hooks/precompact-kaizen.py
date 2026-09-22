@@ -111,6 +111,9 @@ def marker(state, cwd, script):
 def after_compact():
     """After a compaction, tell Claude to read TODO.md before anything else.
 
+    TODO.md is the index /kaizen keeps short; the context of each item lives in
+    todo/<slug>.md, opened only for the item at hand, so it is not named here.
+
     PostCompact has no channel to Claude. SessionStart with source `compact`
     does, through additionalContext, and it fires after manual and automatic
     compaction alike. No terminalSequence here: tab-state.py owns the marker on
@@ -127,9 +130,9 @@ def after_compact():
         return
     json.dump({"hookSpecificOutput": {
         "hookEventName": "SessionStart",
-        "additionalContext": (f"Compaction done. Read {todo} first: it holds where "
-                              "this session stopped and what was deferred. "
-                              "CLAUDE.md says the same."),
+        "additionalContext": (f"Compaction done. Read {todo} first: where this "
+                              "session stopped, and what is left. Open a todo/ "
+                              "file only for the item you work on."),
     }}, sys.stdout)
 
 

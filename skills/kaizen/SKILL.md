@@ -1,6 +1,6 @@
 ---
 name: kaizen
-description: Write TODO.md with where this session stopped, then review the session's friction and turn each real finding into one precise amendment to a CLAUDE.md, a skill, the docs, or a code comment. Use it before compacting, or after a session that taught you something. Also clears the /compact block set by the PreCompact hook.
+description: Update TODO.md and todo/ with where this session stopped and what is left, clearing what is done, then review the session's friction and turn each real finding into one precise amendment to a CLAUDE.md, a skill, the docs, or a code comment. Use it before compacting, or after a session that taught you something. Also clears the /compact block set by the PreCompact hook.
 ---
 
 # Kaizen
@@ -13,32 +13,68 @@ a subagent reading the transcript.
 
 ## 0. Hand off in `TODO.md` — first, always
 
-Before anything else, write `TODO.md` at the session's primary working directory.
-Create it if missing. If a case variant exists (`todo.md`, `Todo.md`), write that
-one; renaming it is a step-5 item. No confirmation: this is state, not a rule.
+Before anything else, bring the handoff up to date at the session's primary
+working directory. No confirmation: this is state, not a rule. `TODO.md` missing
+→ create it. `todo/` is created by its first file, never empty.
 
-Two fixed headings, in the language of the project's `CLAUDE.md`:
+### The layout
+
+```
+TODO.md          the index: short, read in full after every compaction
+todo/<slug>.md   the full context of one item, only when it needs one
+```
+
+`TODO.md`, in the language of the project's `CLAUDE.md`, two fixed headings:
 
 ```markdown
 # TODO
 
 ## Where we stopped
-<replaced on every run: what was being done, the exact next action, the files,
-branch and commands involved, what is half done, what is verified and what is not>
+<the task in progress, the exact next action, branch, files, commands; what is
+half done, what is verified and what is not>
+Context: todo/<slug>.md
 
 ## Later
-- <each thing we said we would do later, with what it takes to do it cold: why,
-  where, constraints, open questions>
+- <one line: the action and where> → todo/<slug>.md
+- <one line that needs nothing more>
 ```
 
-- `Where we stopped` is rewritten each time. Nothing in progress → one line
-  saying so.
-- `Later` keeps its items: add the new ones, remove the ones done this session.
-- Terse and concrete: paths, commands, names. No story.
-- Existing content under other headings: move it under these two, drop nothing
-  that is still live.
+- `TODO.md` stays under about 100 lines. It is what a session reads after a
+  compaction; every line of it costs context there.
+- One line per item in `Later`. An item that needs more than three lines to be
+  done cold — why, what was tried, constraints, commands, open questions — gets
+  `todo/<slug>.md`, and its line ends with `→ todo/<slug>.md`.
+- `Where we stopped` is rewritten on every run, ten to twenty lines. Nothing in
+  progress → one line saying so. It links the `todo/` file of the task in
+  progress when there is one.
+- A `todo/` file is written for someone with none of this session's context:
+  paths, commands, names, the state reached. No story.
+- `<slug>`: lowercase, hyphens, what the item is (`oauth-migration`, not
+  `item-3`).
 
-Tell the user in one line what changed in `TODO.md`, and go on.
+### The cleanup, on every run
+
+1. **New**: each thing we said we would do later becomes a line, with its
+   `todo/` file when it needs one.
+2. **Done**: an item finished in this session, or visibly finished in the repo
+   (the commit, the code, the file is there), loses its line and its `todo/`
+   file. Not sure it is done → keep it and append `(done? check <what>)`. Never
+   drop an item for being old or untouched.
+3. **Changed**: an item whose plan moved gets its line and its `todo/` file
+   rewritten to the current state, not appended to.
+4. **Links**: every `→ todo/…` resolves to a file, and every file in `todo/` has
+   exactly one line pointing to it. A file with no line: still live → add its
+   line; done → delete it. A link to nothing: find the file it meant, or keep the
+   line and drop the link.
+5. **Other headings** in an existing `TODO.md`: move their live content under
+   the two headings, into `todo/` files if long.
+
+A `TODO.md` over the budget, or a case variant (`todo.md`, `Todo.md`), is not
+restructured here: update it in place, and propose the split or the rename in
+step 5.
+
+Then tell the user, in one line each: items added, items removed as done (with
+the evidence), links fixed.
 
 ## 1. The bar
 
@@ -142,19 +178,24 @@ same way.
 
 Same protocol as step 4: one item, one yes or no.
 
-- The project's `CLAUDE.md` names `TODO.md` in its first lines. Missing, or buried
-  below → propose this line at the top, in the file's language:
+- The project's `CLAUDE.md` opens with the handoff line. Missing, buried below,
+  or worded otherwise → propose this at the top, in the file's language:
 
   ```markdown
-  > Session handoff: read `TODO.md` first. If it has content, a recent session stopped there and left what is needed to resume.
+  > Session handoff: read `TODO.md` first — where the last session stopped, and what is left.
+  > Open a `todo/` file only for the item you work on. An item done → delete its line and its `todo/` file.
   ```
 
-  No `CLAUDE.md` → propose creating one with that line only.
+  No `CLAUDE.md` → propose creating one with those lines only.
+- `TODO.md` over about 100 lines → propose the split: which items move to which
+  `todo/<slug>.md`, and the resulting index. Show the plan, not the files.
+- `TODO.md` under another case (`todo.md`, `Todo.md`) → propose the rename
+  (`git mv` when tracked) and fix every reference to it.
 - A file doing `TODO.md`'s job under another name — `SESSION_STATE*`,
-  `session-state*`, `HANDOFF*`, `NEXT*`, `todo.md` — at the root, in `docs/` or
-  in `.claude/` → propose, per file: merge its live content into `TODO.md` under
-  the two headings, remove it (`git rm` when tracked), and fix every reference to
-  it (`grep` the repo for its name).
+  `session-state*`, `HANDOFF*`, `NEXT*` — at the root, in `docs/` or in
+  `.claude/` → propose, per file: merge its live content into `TODO.md` and
+  `todo/`, remove it (`git rm` when tracked), and fix every reference to it
+  (`grep` the repo for its name).
 
 Stay inside the working directory. Never `~/.claude/CLAUDE.md`.
 

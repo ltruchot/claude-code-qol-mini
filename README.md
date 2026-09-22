@@ -137,9 +137,9 @@ Run /kaizen to review it, then /compact again.
 
 | Step | `/kaizen` does |
 |---|---|
-| 1 | writes `TODO.md` in the project: where the session stopped, work deferred |
+| 1 | updates `TODO.md`, an index under 100 lines: where the session stopped, one line per item left; an item that needs context gets `todo/<slug>.md`; done items and their files are removed, links checked |
 | 2 | lists the frictions it hit and had to work around, one at a time, each as an exact edit to a `CLAUDE.md`, a skill, the docs or a code comment; you answer yes or no; none is normal |
-| 3 | proposes a `TODO.md` pointer at the top of `CLAUDE.md`, and a merge of `SESSION_STATE`-style files into `TODO.md` |
+| 3 | proposes the handoff lines at the top of `CLAUDE.md`, the split of an oversized `TODO.md`, and a merge of `SESSION_STATE`-style files |
 | 4 | releases the block: `/compact` goes through, once |
 
 After any compaction, a `SessionStart` hook tells Claude to read `TODO.md` when it

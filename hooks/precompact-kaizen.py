@@ -29,6 +29,7 @@ Usage:
   precompact-kaizen.py --marker <path> ... and move the tab marker with it
   precompact-kaizen.py --release       write the token for the current directory
   precompact-kaizen.py --token         print the token path, and nothing else
+  precompact-kaizen.py --after-compact SessionStart `compact`: point Claude at TODO.md
 """
 import hashlib
 import importlib.util
@@ -107,6 +108,31 @@ def marker(state, cwd, script):
         pass
 
 
+def after_compact():
+    """After a compaction, tell Claude to read TODO.md before anything else.
+
+    PostCompact has no channel to Claude. SessionStart with source `compact`
+    does, through additionalContext, and it fires after manual and automatic
+    compaction alike. No terminalSequence here: tab-state.py owns the marker on
+    SessionStart. Any failure prints nothing, so the session starts clean.
+    """
+    try:
+        data = json.load(sys.stdin)
+        cwd = pathlib.Path(data.get("cwd") or os.getcwd())
+        todo = next((entry for entry in sorted(cwd.iterdir())
+                     if entry.name.lower() == "todo.md" and entry.is_file()), None)
+        if todo is None or not todo.read_text(encoding="utf-8").strip():
+            return
+    except (OSError, ValueError, AttributeError, UnicodeDecodeError):
+        return
+    json.dump({"hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": (f"Compaction done. Read {todo} first: it holds where "
+                              "this session stopped and what was deferred. "
+                              "CLAUDE.md says the same."),
+    }}, sys.stdout)
+
+
 def option(name):
     """The value after `name` on the command line, or None."""
     arguments = sys.argv[1:]
@@ -121,6 +147,9 @@ def main():
         return
     if "--release" in sys.argv[1:]:
         release()
+        return
+    if "--after-compact" in sys.argv[1:]:
+        after_compact()
         return
 
     try:

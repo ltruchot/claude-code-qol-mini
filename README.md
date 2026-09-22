@@ -135,9 +135,15 @@ Compaction held back: this session's friction has not been reviewed.
 Run /kaizen to review it, then /compact again.
 ```
 
-`/kaizen` lists what cost something in this session, one item at a time, each as
-an exact edit to a `CLAUDE.md`, a skill, the docs or a code comment. You answer
-yes or no. Finding nothing is normal. Then `/compact` goes through, once.
+| Step | `/kaizen` does |
+|---|---|
+| 1 | writes `TODO.md` in the project: where the session stopped, work deferred |
+| 2 | lists the frictions it hit and had to work around, one at a time, each as an exact edit to a `CLAUDE.md`, a skill, the docs or a code comment; you answer yes or no; none is normal |
+| 3 | proposes a `TODO.md` pointer at the top of `CLAUDE.md`, and a merge of `SESSION_STATE`-style files into `TODO.md` |
+| 4 | releases the block: `/compact` goes through, once |
+
+After any compaction, a `SessionStart` hook tells Claude to read `TODO.md` when it
+exists.
 
 Automatic compaction is never blocked. Skip a review:
 `python3 ~/.claude/hooks/precompact-kaizen.py --release`.

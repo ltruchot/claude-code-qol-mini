@@ -1,5 +1,7 @@
 # Instructions — `claude-code-qol-mini`
 
+> Session handoff: read `TODO.md` first. If it has content, a recent session stopped there and left what is needed to resume.
+
 A quality-of-life kit for Claude Code, published at `ltruchot/claude-code-qol-mini`.
 It works on **Linux, macOS, WSL and Windows**, in **VS Code and Cursor**.
 
@@ -27,7 +29,7 @@ incident dates or counts. History and proof belong to commit messages.
 | Context status line | `statusline/context.py` | `Opus 5 (1M context) ▓▓▓▓░░░░░░ 88/200k · my-project` |
 | Notification sounds | `sounds/play.py`, `sounds/generate.py` | two rising notes when Claude wants you, one low note when a turn or a manual `/compact` ends |
 | Tab marker | `hooks/tab-state.py` | 🟢 working (subagents, background tasks, compaction) · 🔴 blocked on you · 🟡 idle |
-| Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops until `/kaizen` has run |
+| Kaizen review | `hooks/precompact-kaizen.py`, `skills/kaizen/SKILL.md` | `/compact` stops until `/kaizen` has run; `/kaizen` writes `TODO.md` first; after a compaction Claude is told to read it |
 
 `install.py` installs (`install.sh` / `install.ps1` wrap it), `uninstall.py` removes,
 `install-vscode.py` sets the editor, `test.sh` checks.
@@ -84,6 +86,9 @@ that is not a console, it asks nothing. A prompt that blocks a script or CI is a
   `PostToolUse`, not on `PreCompact`, `SessionStart`, `SubagentStart`,
   `PostModelSwitch`.
 - Automatic compaction is never blocked, and no review is possible on it.
+- `SessionStart` with matcher `compact` is the only channel to Claude after a
+  compaction, manual or automatic. `precompact-kaizen.py --after-compact` uses it
+  to name `TODO.md`, and emits no marker: `tab-state.py` owns `SessionStart`.
 - The release token is keyed on the working **directory**, not the session: the
   skill writes it from a plain shell, a manual `/kaizen` arms the next `/compact`,
   and one project's review does not release another's.

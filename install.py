@@ -407,6 +407,10 @@ def settings_for(chosen, target, python, data):
         add("PreCompact", [hook("hooks/precompact-kaizen.py",
                                 *(["--marker", str(target / "hooks/tab-state.py")]
                                   if tabs else []))])
+        # The only channel to Claude after a compaction, manual or automatic:
+        # it names TODO.md, where /kaizen left the handoff. No marker in it.
+        add("SessionStart", [hook("hooks/precompact-kaizen.py", "--after-compact")],
+            "compact")
     elif tabs:
         add("PreCompact", [hook("hooks/tab-state.py", "working")])
     add("PostCompact", ([hook("sounds/play.py", "done")] if sounds else []) +

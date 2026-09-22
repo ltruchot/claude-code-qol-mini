@@ -136,6 +136,35 @@ if [ $? -eq 0 ]; then
 else
     printf '  FAIL  %-34s\n' "unwritable state never blocks"; failures=$((failures + 1))
 fi
+
+# After a compaction, SessionStart `compact` names TODO.md to Claude, and only
+# when there is one worth reading. Never a marker: tab-state.py owns SessionStart.
+after="{\"hook_event_name\":\"SessionStart\",\"source\":\"compact\",\"cwd\":\"$WORK\"}"
+out="$(printf '%s' "$after" | python3 "$HOOK" --after-compact)"
+if [ -z "$out" ]; then
+    printf '  ok    %-34s silent\n' "after compact, no TODO.md"
+else
+    printf '  FAIL  %-34s said: %s\n' "after compact, no TODO.md" "$out"; failures=$((failures + 1))
+fi
+printf '# TODO\n\n## Where we stopped\nx\n' > "$WORK/TODO.md"
+out="$(printf '%s' "$after" | python3 "$HOOK" --after-compact)"
+if printf '%s' "$out" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert 'terminalSequence' not in d, d
+h = d['hookSpecificOutput']
+assert h['hookEventName'] == 'SessionStart' and 'TODO.md' in h['additionalContext'], d
+" 2>/dev/null; then
+    printf '  ok    %-34s names TODO.md\n' "after compact, with TODO.md"
+else
+    printf '  FAIL  %-34s said: %s\n' "after compact, with TODO.md" "$out"; failures=$((failures + 1))
+fi
+out="$(printf 'not json' | python3 "$HOOK" --after-compact)"; code=$?
+if [ "$code" -eq 0 ] && [ -z "$out" ]; then
+    printf '  ok    %-34s silent, exit 0\n' "after compact, unreadable payload"
+else
+    printf '  FAIL  %-34s exit %s: %s\n' "after compact, unreadable payload" "$code" "$out"; failures=$((failures + 1))
+fi
 rm -rf "$STATE" "$WORK"
 
 echo
@@ -154,6 +183,22 @@ if grep -q 'precompact-kaizen.py' "$INST/settings.json" 2>/dev/null; then
     echo "  ok    PreCompact hook registered"
 else
     echo "  FAIL  PreCompact hook missing"; failures=$((failures + 1))
+fi
+if grep -q 'TODO.md' "$SKILL" 2>/dev/null; then
+    echo "  ok    skill writes the TODO.md handoff"
+else
+    echo "  FAIL  skill does not name TODO.md"; failures=$((failures + 1))
+fi
+if python3 -c "
+import json, sys
+groups = json.load(open(sys.argv[1]))['hooks']['SessionStart']
+assert any(g.get('matcher') == 'compact' and
+           any('--after-compact' in h.get('args', []) for h in g['hooks'])
+           for g in groups)
+" "$INST/settings.json" 2>/dev/null; then
+    echo "  ok    SessionStart compact hook registered"
+else
+    echo "  FAIL  SessionStart compact hook missing"; failures=$((failures + 1))
 fi
 
 echo

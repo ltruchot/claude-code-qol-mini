@@ -1,0 +1,13 @@
+version: 1
+placeholders:
+  - name: VAULT_URL
+    prompt: Vault url
+    type: url
+  - name: TOKEN
+    prompt: Vault token
+    secret: true
+  - name: VERBOSE
+    prompt: Verbose logs
+    type: boolean
+    default: "false"
+skipIfExists: [notes.md]

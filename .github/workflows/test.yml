@@ -1,0 +1,50 @@
+# The gates on Linux and macOS, the install/uninstall cycle on all three. This is
+# the only place the macOS and Windows paths run. Audio and the editor are not
+# exercised: nothing plays a sound on a runner.
+name: test
+on: [push, pull_request]
+jobs:
+  ready:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@0cffb0a1ac50daa1541b57d1eb7c843f479522e1 # v1.18.0
+        with:
+          cache: true
+      - run: vp install --frozen-lockfile
+      - run: vp check
+      - run: vp run lines
+      - run: vp run -r test
+      - run: vp run -r build
+      - run: vp run packcheck
+  install-cycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    env:
+      CLAUDE_CONFIG_DIR: ${{ github.workspace }}/claude-config
+      XDG_CACHE_HOME: ${{ github.workspace }}/cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@0cffb0a1ac50daa1541b57d1eb7c843f479522e1 # v1.18.0
+        with:
+          cache: true
+      - run: vp install --frozen-lockfile
+      - run: vp run -r build
+      - run: node packages/qol-mini/dist/cli.js install --tab-state --warn 120000
+      - run: node packages/qol-mini/dist/cli.js install --replace # keeps what is installed
+      - run: node scripts/cycle.ts
+      - run: node packages/qol-mini/dist/cli.js skills install npm-vulnerability-check ./project
+      - run: node packages/qol-mini/dist/cli.js skills check ./project
+      - run: node packages/qol-mini/dist/cli.js uninstall
+      - run: node scripts/cycle.ts --uninstalled

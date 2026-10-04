@@ -1,0 +1,33 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing, no token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@0cffb0a1ac50daa1541b57d1eb7c843f479522e1 # v1.18.0
+        with:
+          cache: true
+      - name: "tag must match packages/qol-mini/package.json version"
+        run: test "v$(node -p "require('./packages/qol-mini/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: vp install --frozen-lockfile
+      - run: vp check
+      - run: vp run lines
+      - run: vp run -r test
+      - run: vp run -r build
+      - run: vp run packcheck
+      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
+        working-directory: /tmp # root package.json pins pnpm via devEngines, npm refuses to run there
+      - name: "pack with pnpm, resolves catalog versions"
+        working-directory: packages/qol-mini
+        run: vp pm pack --pack-destination /tmp/pack # pnpm is not on PATH in Actions, vp forwards
+      - name: "publish tarball, access from publishConfig, provenance from trusted publishing"
+        working-directory: packages/qol-mini
+        run: npm publish /tmp/pack/*.tgz

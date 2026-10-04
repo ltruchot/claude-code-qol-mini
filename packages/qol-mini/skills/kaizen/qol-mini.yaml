@@ -1,0 +1,5 @@
+version: 1
+placeholders:
+  # Computed by the installer: the interpreter and the hook's absolute path
+  - name: RELEASE_COMMAND
+    prompt: Command that releases /compact

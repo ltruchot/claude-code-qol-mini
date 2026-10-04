@@ -1,0 +1,16 @@
+version: 1
+placeholders:
+  - name: TOKEN_PREFIX
+    prompt: Design token prefix
+    pattern: "^--[a-z0-9]+$"
+  - name: TOKENS_FILE
+    prompt: Path to the tokens css file
+    type: path
+  - name: TOKENS_DOC
+    prompt: Path to the tokens doc page
+    type: path
+  - name: UI_ROOT
+    prompt: UI package root
+    type: path
+  - name: LINT_PLUGIN
+    prompt: Stylelint plugin namespace

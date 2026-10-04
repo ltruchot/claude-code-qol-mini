@@ -1,0 +1,54 @@
+{
+  "model": "opus",
+  "statusLine": {
+    "type": "command",
+    "command": "\"python3\" \"/x/statusline-context.py\" --warn 150000"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "C:\\Users\\x\\.claude\\sounds\\play.py",
+              "done"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "echo",
+            "args": [
+              "mine"
+            ]
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "C:\\Users\\x\\.claude\\hooks\\tab-state.py",
+              "idle"
+            ]
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /x/hooks/precompact-friction.py"
+          }
+        ]
+      }
+    ]
+  }
+}

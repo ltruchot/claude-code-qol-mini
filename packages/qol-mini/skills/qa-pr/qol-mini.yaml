@@ -1,0 +1,11 @@
+version: 1
+placeholders:
+  - name: GITHUB_REPO
+    prompt: GitHub repo owner/name
+    pattern: "^[\\w.-]+/[\\w.-]+$"
+  - name: DEFAULT_BRANCH
+    prompt: Default branch
+    default: main
+  - name: PROD_URL
+    prompt: Production URL
+    type: url

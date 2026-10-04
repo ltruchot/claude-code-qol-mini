@@ -1,0 +1,12 @@
+version: 1
+placeholders:
+  - name: PROJECT_NAME
+    prompt: Project name
+  - name: GITHUB_REPO
+    prompt: GitHub repo owner/name
+    pattern: "^[\\w.-]+/[\\w.-]+$"
+    default: acme/example
+  - name: TEAM
+    prompt: Team name
+    type: enum
+    options: [core, web, data]

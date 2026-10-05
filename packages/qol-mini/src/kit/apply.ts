@@ -10,8 +10,8 @@ import type { Settings } from "./state.ts";
 
 export type Applied = { newSkillsDir: boolean };
 
-// Write the plan: stale files go, missing files are created, differing ones
-// are replaced (the caller refused earlier without --replace)
+// Write the plan: missing files are created, differing ones are replaced (the
+// caller refused earlier without --replace), stale files go
 export function apply(
   p: Plan,
   target: string,
@@ -21,10 +21,6 @@ export function apply(
   const newSkillsDir = p.create.includes(KAIZEN_SKILL) && !existsSync(join(target, "skills"));
   print([`Installing into ${target}`]);
   mkdirSync(target, { recursive: true });
-  for (const relative of p.stale) {
-    unlinkSync(join(target, relative));
-    row("removed", relative);
-  }
   for (const relative of [...p.create, ...p.clash].toSorted()) {
     mkdirSync(dirname(join(target, relative)), { recursive: true });
     writeFileSync(join(target, relative), wanted.get(relative) ?? "");
@@ -38,5 +34,10 @@ export function apply(
     if (copy !== null) row("backup", copy.slice(target.length + 1));
     row("updated", "settings.json");
   } else row("unchanged", "settings.json");
+  // Last: a running session calls the handlers it holds until it reloads settings
+  for (const relative of p.stale) {
+    unlinkSync(join(target, relative));
+    row("removed", relative);
+  }
   return { newSkillsDir };
 }

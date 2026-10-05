@@ -44,6 +44,7 @@ export async function runInstall(argv: string[]): Promise<number> {
     printOptout();
     return 0;
   }
-  hints(chosen, before, merged, apply(p, target, wanted, merged).newSkillsDir, p.settings);
+  const { newSkillsDir } = apply(p, target, wanted, merged);
+  hints(chosen, before, merged, newSkillsDir, p.settings, p.stale.length > 0);
   return 0;
 }

@@ -179,8 +179,8 @@ A prompt that blocks a script or CI is a bug.
 
 - Hooks use exec form: `{"type": "command", "command": <node>, "args": [<script>,
   <arg>]}`. The interpreter is `process.execPath`. No shell string, no Git Bash.
-  Under a version manager that path is tied to one Node version: `install
-  --replace` rewrites it.
+  Under a version manager that path is tied to one Node version: running
+  `install` again rewrites it. Why not a bare `node`: `docs/adr/0002-hooks-run-an-absolute-node.md`.
 - A `dlx` run lives in a temporary cache: the hooks are copied into the config dir,
   never referenced in the package. Each one is a standalone bundle, built from its
   own `pack` entry so no chunk is shared, and named `.mjs`: a bare `.js` with no
@@ -198,6 +198,9 @@ A prompt that blocks a script or CI is a bug.
   `withoutOurs()` is shared with `uninstall`. `OURS` matches a script without its
   extension, so a handler on a `.py` or `.sh` copy goes too. When a delivered file is
   renamed, add the old name to `OURS` and `SUPERSEDED`.
+- Superseded files are removed last, after `settings.json` is written. A running
+  session reloads hooks through a file watcher, after a delay: until then it calls
+  the handlers it holds, on files that are gone. `install` says so when it removes one.
 - A restart is named in two cases only: the `env` block changed, or `skills/` did
   not exist before the run.
 - An editor `settings.json` is JSONC: insert the key textually, never parse and
@@ -302,8 +305,9 @@ vp run -r build && vp run packcheck
 ./uninstall.sh             # removes what was installed, nothing else
 ```
 
-- `vp run --no-cache ready` chains the gates. All of them pass before a change
-  is done. Without `--no-cache`, `vp check` stops on `tsgolint EBUSY`.
+- `vp run ready` chains the gates. All of them pass before a change is done.
+- `ready` calls `vp run check`, a task with `cache: false`: under the task cache
+  `tsgolint` fails to spawn with `EBUSY`. Keep it uncached.
 - Sources and tests hold 50 lines per file. Skills, docs and this file do not.
 - Lint runs every oxlint category as an error. An exception is one line in
   `lint/off-*.ts`, with its reason.

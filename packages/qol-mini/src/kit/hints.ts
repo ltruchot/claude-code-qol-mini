@@ -14,11 +14,15 @@ export function hints(
   merged: Settings,
   newSkillsDir: boolean,
   settingsChanged: boolean,
+  removed: boolean,
 ): void {
   print([""]);
   if (chosen.tabs && titleOff(merged) !== titleOff(before))
     print(["Tab marker: run `qol-mini vscode`, then start a new session."]);
   if (newSkillsDir) print(["Kaizen: /kaizen appears in a new session."]);
   printOptout();
+  // The file watcher reloads hooks after a delay: the handlers a session holds
+  // until then name the files just removed
+  if (removed) print(["A session already running can fail one hook before it reloads."]);
   print([settingsChanged ? "Done. Running sessions pick up hooks and the status line." : "Done."]);
 }

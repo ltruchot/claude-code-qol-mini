@@ -116,7 +116,7 @@ one is never rewritten.
 
 **Nothing plays?** Linux and WSL need one of `paplay`, `pw-play`, `aplay`,
 `ffplay`, `mpv`, `play`. Test with `paplay ~/.claude/sounds/done.wav`. On WSL,
-check the Windows volume mixer. macOS uses `afplay`, Windows `winsound`.
+check the Windows volume mixer. macOS uses `afplay`, Windows PowerShell's `Media.SoundPlayer`.
 
 Why a hook: the VS Code and Cursor terminals get no built-in Claude Code
 notification, and the built-in bell cannot tell "waiting on you" from "done".

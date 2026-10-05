@@ -19,6 +19,7 @@ test("a past release is purged, the user's settings and options survive", async 
   const run = await kit(target, ["install", "--replace"]);
   expect(run.out).toContain("removed       hooks/tab-state.py");
   expect(run.out).toContain("backup        settings.json.bak-");
+  expect(run.out).toContain("can fail one hook before it reloads");
   const text = JSON.stringify(await settings(target));
   expect(text).not.toMatch(/\.py|\.sh|SessionEnd|python3/);
   expect(text).toContain('"args":["mine"]');

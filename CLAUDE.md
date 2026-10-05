@@ -334,6 +334,12 @@ directory.
 A tag `v<version>` matching `packages/qol-mini/package.json` publishes to npm from
 `.github/workflows/release.yml`, through trusted publishing.
 
+- The job runs in the GitHub environment `release`, which has required reviewers:
+  a pushed tag publishes nothing until the run is approved. The npm trust names
+  that environment. Keep `environment: release` in the workflow.
+- Actions are pinned by commit SHA and npm by version: the job holds the right
+  to publish.
+
 - `npm` refuses to run at the repository root: the root `package.json` pins pnpm
   through `devEngines`. Run `npm login` and `npm publish` from `packages/qol-mini`.
 - Publish the tarball made by `vp pm pack`, never the directory: pnpm resolves the

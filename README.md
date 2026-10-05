@@ -360,7 +360,8 @@ git tag v<version> && git push origin v<version>
 | tag must equal the version in `packages/qol-mini/package.json` | a tag cannot publish another version |
 | the gates of `ready` | nothing unchecked reaches npm |
 | `vp pm pack`, then `npm publish` of the tarball | pnpm resolves the `catalog:` versions when it packs; `npm publish` of the directory would ship them unresolved |
-| trusted publishing | no npm token stored in the repository; configure it once for `qol-mini` on npmjs.com |
+| trusted publishing | no npm token stored in the repository; configure it once: `npm trust github qol-mini --file release.yml --repo ltruchot/claude-code-qol-mini --env release --allow-publish` |
+| `environment: release` | the GitHub environment `release` has required reviewers: the job waits for an approval before it can publish |
 
 ## Verified where
 

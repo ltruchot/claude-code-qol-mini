@@ -1,6 +1,6 @@
 import { managedNames } from "../core/lock/managed.ts";
 import { lintTools } from "../io/lint-configs.ts";
-import { note } from "../io/ui.ts";
+import { info, note } from "../io/ui.ts";
 import type { Ctx } from "./context.ts";
 
 export const LINT_DOC =
@@ -20,11 +20,10 @@ export async function lintHint(ctx: Ctx, names: string[]): Promise<void> {
       "Ignore, in every formatter and linter of this project:",
       ...names.map((name) => `  .claude/skills/${name}/`),
       ...(found.length > 0 ? ["Configured here:", ...found] : []),
-      "Prompt for an agent:",
-      `  ${LINT_DOC}`,
     ],
     TITLE,
   );
+  info(`Prompt for an agent: ${LINT_DOC}`);
 }
 
 // Skills that entered the lock during this run

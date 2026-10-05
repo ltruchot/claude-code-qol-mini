@@ -9,6 +9,7 @@ import { loadBank } from "./banks.ts";
 import { checkOne } from "./check-one.ts";
 import { type GlobalOpts, loadContext } from "./context.ts";
 import { cmdIntro } from "./intro.ts";
+import { lintHint } from "./lint-hint.ts";
 
 type Opts = GlobalOpts & { frozen?: boolean };
 
@@ -22,14 +23,17 @@ export async function runCheck(project: string | undefined, opts: Opts): Promise
   const bank = await loadBank();
   const all: Status[] = [];
   const lines: string[] = [];
+  const drifted: string[] = [];
   for (const name of managedNames(ctx.lock)) {
     const entry = ctx.lock.skills[name];
     if (entry === undefined) continue;
     const statuses = await checkOne(ctx, bank, name, entry, opts.frozen === true);
     all.push(...statuses);
+    if (statuses.includes("drift")) drifted.push(name);
     lines.push(`${name}: ${statuses.map(paint).join(", ")}`);
   }
   print(lines);
+  await lintHint(ctx, drifted);
   const unmanaged = unmanagedDirs(ctx.lock, await listDirs(ctx.p.skills));
   if (unmanaged.length > 0) info(`unmanaged: ${unmanaged.join(", ")}`);
   const code = exitCode(all);

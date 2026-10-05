@@ -1,5 +1,5 @@
 import type { CAC } from "cac";
-import { isManaged } from "../core/lock/managed.ts";
+import { isManaged, managedNames } from "../core/lock/managed.ts";
 import { exists } from "../io/fs.ts";
 import { writeLocal } from "../io/local.ts";
 import { writeLock } from "../io/lock.ts";
@@ -9,6 +9,7 @@ import { addOne } from "./add-one.ts";
 import { type Bank, bankNames, findSkill, type Found, loadBank } from "./banks.ts";
 import { type Ctx, type GlobalOpts, loadContext } from "./context.ts";
 import { cmdIntro } from "./intro.ts";
+import { addedSince, lintHint } from "./lint-hint.ts";
 import { pickSkills, splitArgs } from "./targets.ts";
 import { updateName } from "./update-name.ts";
 
@@ -24,6 +25,7 @@ export async function runInstall(args: string[], opts: GlobalOpts): Promise<void
   const { names, project } = splitArgs(args);
   const ctx = await loadContext(opts, project);
   const bank = await loadBank();
+  const before = managedNames(ctx.lock);
   for (const name of await pickSkills(ctx, bank, names)) {
     const found = findSkill(bank, name);
     if (found === undefined) fail(`unknown skill: ${name}, shipped: ${bankNames(bank).join(", ")}`);
@@ -31,6 +33,7 @@ export async function runInstall(args: string[], opts: GlobalOpts): Promise<void
     await writeLock(ctx.p, ctx.lock);
     await writeLocal(ctx.p, ctx.local);
   }
+  await lintHint(ctx, addedSince(ctx, before));
   outro(`done: ${ctx.p.skills}`);
 }
 

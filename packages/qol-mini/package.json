@@ -1,6 +1,6 @@
 {
   "name": "qol-mini",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Minimal Claude Code kit: status line, sounds, tab marker, kaizen review, and skills per project",
   "homepage": "https://github.com/ltruchot/claude-code-qol-mini#readme",
   "bugs": "https://github.com/ltruchot/claude-code-qol-mini/issues",

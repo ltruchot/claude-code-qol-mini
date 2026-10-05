@@ -302,7 +302,8 @@ vp run -r build && vp run packcheck
 ./uninstall.sh             # removes what was installed, nothing else
 ```
 
-- `vp run ready` chains the gates. All of them pass before a change is done.
+- `vp run --no-cache ready` chains the gates. All of them pass before a change
+  is done. Without `--no-cache`, `vp check` stops on `tsgolint EBUSY`.
 - Sources and tests hold 50 lines per file. Skills, docs and this file do not.
 - Lint runs every oxlint category as an error. An exception is one line in
   `lint/off-*.ts`, with its reason.

@@ -283,7 +283,8 @@ A prompt that blocks a script or CI is a bug.
 | This machine: WSL2, Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories, from a clone and from npm through `pnpm dlx`; the update of a real config that held `.py` handlers |
 | CI: Linux, macOS | the test suite |
 | CI: Linux, macOS, Windows | install, update, a delivered hook run alone, a skill installed and checked, uninstall |
-| Never | the Node hooks in a live session: tab marker on screen, sounds heard, `/compact` held back; `afplay`, PowerShell `SoundPlayer`; the editor paths outside WSL |
+| This machine: WSL2, VS Code, a live session | the tab marker on screen, the sounds heard, `/compact` held back then released by `/kaizen`; the marker back in a project whose opt-out file names `kaizen` |
+| Never | `afplay`, PowerShell `SoundPlayer`; the editor paths outside WSL |
 
 The README states this. Do not claim more.
 
@@ -293,10 +294,8 @@ The README states this. Do not claim more.
   what reads best is untested. Colors are settled: green running, red blocking only,
   yellow idle. Orange reads as red across a tab strip.
 - A warning triangle shows on every tab in the terminal list. Cause unknown.
-- A full `/compact` with markers is unobserved. Check the dim post-compaction line
-  and the compaction instructions for our JSON; if dirty, remove the `PreCompact`
-  marker only.
-- A full `/compact` → `/kaizen` → `/compact` sequence is unobserved.
+- Unchecked on a `/compact` with markers: the dim post-compaction line and the
+  compaction instructions, for our JSON. If dirty, remove the `PreCompact` marker only.
 
 ## Testing
 

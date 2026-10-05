@@ -370,7 +370,8 @@ git tag v<version> && git push origin v<version>
 | WSL2 (terminal and Claude Code), Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories, from a clone and from npm through `pnpm dlx` |
 | CI: Linux, macOS | the test suite |
 | CI: Linux, macOS, Windows | install, update, a delivered hook run alone, a skill installed and checked, uninstall |
-| Nowhere yet | the Node hooks on screen in a live session; sounds heard; editor settings on native Linux, macOS, Windows |
+| WSL2, VS Code, a live session | the tab marker, the sounds, `/compact` held back then released by `/kaizen` |
+| Nowhere yet | sounds on macOS and native Windows; editor settings on native Linux, macOS, Windows |
 
 ## Related
 

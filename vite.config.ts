@@ -14,6 +14,8 @@ export default defineConfig({
   run: {
     cache: true,
     tasks: {
+      // Uncached: under the task cache tsgolint fails to spawn with EBUSY
+      check: { command: "vp check", cache: false },
       // Style law: every source and test file under 50 lines
       lines: { command: "node scripts/lines.ts", cache: false },
       // Publish safety: pnpm pack must resolve catalog: and keep bin

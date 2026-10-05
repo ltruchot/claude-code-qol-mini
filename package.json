@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "ready": "vp check && vp run lines && vp run -r test && vp run -r build && vp run packcheck",
+    "ready": "vp run check && vp run lines && vp run -r test && vp run -r build && vp run packcheck",
     "prepare": "vp config"
   },
   "devDependencies": {

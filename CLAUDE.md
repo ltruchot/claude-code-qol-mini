@@ -253,9 +253,9 @@ A prompt that blocks a script or CI is a bug.
 
 | Where | What |
 |---|---|
-| This machine: WSL2, Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories |
+| This machine: WSL2, Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories, from a clone and from npm through `pnpm dlx` |
 | CI: Linux, macOS | the test suite |
-| CI: Windows | install, update, uninstall |
+| CI: Linux, macOS, Windows | install, update, a delivered hook run alone, a skill installed and checked, uninstall |
 | Never | the Node hooks in a live session: tab marker on screen, sounds heard, `/compact` held back; `afplay`, PowerShell `SoundPlayer`; the editor paths outside WSL; the update of a real config that holds `.py` handlers |
 
 The README states this. Do not claim more.
@@ -287,6 +287,9 @@ vp run -r build && vp run packcheck
 - Sources and tests hold 50 lines per file. Skills, docs and this file do not.
 - Lint runs every oxlint category as an error. An exception is one line in
   `lint/off-*.ts`, with its reason.
+- The root `package.json` names pnpm twice: `packageManager` is what Vite+ reads
+  to pick the version, `devEngines` is what makes `npm` refuse the root. Without
+  `packageManager`, `vp install` runs an older pnpm that rejects the lockfile.
 - No dependency at runtime: everything is bundled. A new dev dependency gets an
   exact pin in the `pnpm-workspace.yaml` catalog.
 - Hooks are tested as real processes with the event JSON on stdin; the installer
@@ -301,3 +304,8 @@ directory.
 
 A tag `v<version>` matching `packages/qol-mini/package.json` publishes to npm from
 `.github/workflows/release.yml`, through trusted publishing.
+
+- `npm` refuses to run at the repository root: the root `package.json` pins pnpm
+  through `devEngines`. Run `npm login` and `npm publish` from `packages/qol-mini`.
+- Publish the tarball made by `vp pm pack`, never the directory: pnpm resolves the
+  `catalog:` versions when it packs. The README holds the commands.

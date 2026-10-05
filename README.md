@@ -17,23 +17,38 @@ per project. One package, `qol-mini`.
 
 Linux, macOS, WSL, Windows. Node.js 22.18+. MIT.
 
-## Install
+## Quick start
+
+Needs Node.js 22.18+. Nothing to clone.
 
 ```bash
-pnpm dlx qol-mini install    # asks four yes/no questions; --defaults asks nothing
-pnpm dlx qol-mini vscode     # tab marker only
+pnpm dlx qol-mini install                                   # 1. global: asks four yes/no questions
+pnpm dlx qol-mini skills install /path/to/my-project        # 2. skills: pick from a list
+pnpm dlx qol-mini skills install qa-pr /path/to/my-project  #    or name them
 ```
 
-`npx qol-mini <command>` and `npm install -g qol-mini` work the same.
+`npx qol-mini <command>` and `npm install -g qol-mini` run the same package.
 
-From a clone, with [Vite+](https://viteplus.dev) installed:
+| Step | Writes into | Then |
+|---|---|---|
+| 1 | `~/.claude` (or `$CLAUDE_CONFIG_DIR`) | start a new Claude Code session |
+| 2 | `/path/to/my-project/.claude/skills/` and `.claude/qol-mini.lock.json` | commit both; start a new session in that project |
 
-| Command | Wrapper (`.sh`, `.ps1`) |
+A skill asks for its values once (`qa-pr`: the GitHub repo, the production URL).
+Shipped skills: `css-modern`, `npm-vulnerability-check`, `qa-pr`, `kaizen`.
+
+## Install
+
+| Command | From a clone, with [Vite+](https://viteplus.dev) (`.sh`, `.ps1`) |
 |---|---|
 | `qol-mini install` | `./install.sh` |
 | `qol-mini uninstall` | `./uninstall.sh` |
 | `qol-mini vscode` | `./install-vscode.sh` |
 | `qol-mini skills install` | `./install-skills.sh` |
+| `qol-mini skills <other>` | `./scripts/qol-mini.sh skills <other>` |
+
+`qol-mini install --defaults` asks nothing. `qol-mini vscode` sets the editor for
+the tab marker only.
 
 Then start a new Claude Code session. Reloading the editor window is not enough.
 
@@ -62,7 +77,8 @@ pnpm dlx qol-mini@latest install --replace
 
 Keeps your options. Without `--replace`, an edited file makes the installer stop
 and write nothing. The hooks are registered with the path of the Node binary that
-ran the installer: after a Node upgrade through a version manager, run it again. Your own sound files are never overwritten.
+ran the installer: after a Node upgrade through a version manager, run it again.
+Your own sound files are never overwritten.
 
 A project that runs its own setup is left alone with
 [`.claude/qol-mini-off`](#leave-one-project-alone).
@@ -166,6 +182,7 @@ Automatic compaction is never blocked. Skip a review:
 ## Skills
 
 Shipped in the package: `css-modern`, `npm-vulnerability-check`, `qa-pr`, `kaizen`.
+`qol-mini` below is `pnpm dlx qol-mini`, or `./scripts/qol-mini.sh` from a clone.
 
 ```bash
 qol-mini skills install qa-pr ./my-project    # into ./my-project/.claude/skills/qa-pr
@@ -225,13 +242,68 @@ Sessions started below the file are covered too. Remove the file to undo.
 ~/.cache/qol-mini/              templates for merges, one backup per skill
 ```
 
+## Develop
+
+```bash
+vp install
+vp run ready      # format, lint, types, 50-line gate, tests, build, pack check
+```
+
+| CI job (`.github/workflows/test.yml`) | Runs on | Checks |
+|---|---|---|
+| `ready` | Linux, macOS | the same gates as `vp run ready` |
+| `install-cycle` | Linux, macOS, Windows | the built CLI on a real runner: install, update with `--replace`, a delivered hook run alone, a skill installed and checked, uninstall leaving `settings.json` empty |
+
+## Publish
+
+What a published version changes for a user:
+
+| | From a clone | From npm |
+|---|---|---|
+| Needs | Node.js, git, Vite+ to build | Node.js |
+| Install | `git clone`, then `./install.sh` | `pnpm dlx qol-mini install` |
+| Skills in a project | `./install-skills.sh qa-pr <project>` | `pnpm dlx qol-mini skills install qa-pr <project>` |
+| Update | `git pull && ./install.sh --replace` | `pnpm dlx qol-mini@latest install --replace` |
+| Left on the machine | the clone | nothing: `dlx` runs from a temporary cache, the hooks are copied into `~/.claude` |
+
+`npx qol-mini <command>` and `npm install -g qol-mini` are the same package.
+
+### By hand
+
+| Step | Command, from `packages/qol-mini` | Note |
+|---|---|---|
+| 1. Log in | `npm login` | once per machine |
+| 2. Build and pack | `vp run build && vp pm pack` | writes `qol-mini-<version>.tgz`, `catalog:` versions resolved |
+| 3. Publish | `npm publish qol-mini-<version>.tgz` | opens a browser page to authenticate |
+| 3, under WSL | `BROWSER=wslview npm publish qol-mini-<version>.tgz` | WSL has no browser to open |
+| 4. Check | `npm view qol-mini version` | prints the version just published |
+
+| Error | Cause | Fix |
+|---|---|---|
+| `EBADDEVENGINES … "pnpm" does not match "npm"` | `npm` was run at the repository root, whose `package.json` pins pnpm | `cd packages/qol-mini` |
+| `Set the BROWSER environment variable` | WSL: the authentication page cannot be opened | `BROWSER=wslview`, or `--auth-type=legacy` to type a one-time code in the terminal |
+| `404` on step 4 | step 3 stopped before publishing | run step 3 again: the tarball is still there |
+
+### From CI
+
+```bash
+git tag v<version> && git push origin v<version>
+```
+
+| Step of `.github/workflows/release.yml` | Why |
+|---|---|
+| tag must equal the version in `packages/qol-mini/package.json` | a tag cannot publish another version |
+| the gates of `ready` | nothing unchecked reaches npm |
+| `vp pm pack`, then `npm publish` of the tarball | pnpm resolves the `catalog:` versions when it packs; `npm publish` of the directory would ship them unresolved |
+| trusted publishing | no npm token stored in the repository; configure it once for `qol-mini` on npmjs.com |
+
 ## Verified where
 
 | Where | What |
 |---|---|
-| WSL2 (terminal and Claude Code), Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories |
+| WSL2 (terminal and Claude Code), Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories, from a clone and from npm through `pnpm dlx` |
 | CI: Linux, macOS | the test suite |
-| CI: Windows | install, update, uninstall |
+| CI: Linux, macOS, Windows | install, update, a delivered hook run alone, a skill installed and checked, uninstall |
 | Nowhere yet | the Node hooks on screen in a live session; sounds heard; editor settings on native Linux, macOS, Windows |
 
 ## Related

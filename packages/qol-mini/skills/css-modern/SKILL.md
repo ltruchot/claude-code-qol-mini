@@ -18,9 +18,9 @@ Statuses move. Check a feature not listed here on its MDN page before relying on
 
 ## Design tokens (read first for any `*.css`)
 
-Every value in every `*.css` file MUST come from a `{{TOKEN_PREFIX}}-*` token defined in `{{TOKENS_FILE}}`. No raw hex, no magic px, no ad-hoc rems.
+The project's tokens are in `{{TOKENS_FILE}}`, named `{{TOKEN_PREFIX}}-*`. When a token holds the value, the token is mandatory: no raw hex, no magic px, no ad-hoc rem. The project's tokens outrank every example in this skill.
 
-**See `references/design-tokens.md`** for the authorized namespaces, the no-indirection rule, how to add a namespace, and the stylelint troubleshooting table.
+**See `references/design-tokens.md`** for the priority rule, the usual namespaces, the no-indirection rule, how to add a token, and what to do when a linter guards them.
 
 ## Modern Reset
 

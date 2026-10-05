@@ -94,9 +94,14 @@ A prompt that blocks a script or CI is a bug.
 - Hook entries merge across settings levels and no project file removes one of
   ours: `disableAllHooks` in a project takes that project's own hooks down too.
   So each script asks the question itself.
-- `.claude/qol-mini-off` in a project: `precompact-kaizen`, `tab-state` and `play`
-  do nothing there, from any depth below it. The walk up stops
+- `.claude/qol-mini-off` in a project, empty: `precompact-kaizen`, `tab-state` and
+  `play` do nothing there, from any depth below it. The walk up stops
   below `$HOME`, so a stray file in the home directory silences nothing.
+- The file can name features, split on spaces or commas: `kaizen`, `tab`, `sounds`.
+  Then only those are off. Every hook passes its own feature to `optedOut()`.
+- With `kaizen` off and `tab` on, `precompact-kaizen --marker` still emits green on
+  `PreCompact`: it is the only emitter registered there.
+- Skills are outside the opt-out: nothing of theirs runs in a hook.
 - The status line is not in the opt-out: a project that wants another one sets
   `statusLine` in its own settings, which outranks ours.
 

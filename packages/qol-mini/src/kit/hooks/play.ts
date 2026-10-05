@@ -9,7 +9,7 @@ import { findSound, play, soundName } from "./sound.ts";
 try {
   const event = readPayload();
   const wanted = process.argv[2];
-  if (wanted !== undefined && !optedOut(text(event, "cwd"))) {
+  if (wanted !== undefined && !optedOut(text(event, "cwd"), "sounds")) {
     const name = soundName(wanted, event);
     const sound = name === null ? undefined : findSound(name);
     if (sound !== undefined) play(sound);

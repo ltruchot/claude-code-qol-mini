@@ -9,6 +9,8 @@ export function printOptout(): void {
   print([
     "Leave one project alone -- no block, no marker, no sound:",
     "  mkdir -p <project>/.claude && touch <project>/.claude/qol-mini-off",
+    "Or name what to switch off there, among kaizen, tab, sounds:",
+    "  echo kaizen > <project>/.claude/qol-mini-off",
   ]);
 }
 

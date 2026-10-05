@@ -29,8 +29,8 @@ test("a project opts out with one file, from any depth, and only there", async (
   expect((await hook("tab-state", ["working"], event(on), env)).out).toContain("terminalSequence");
 
   // A stray file in the home directory silences nothing
-  expect(optedOut(on, off)).toBe(false);
-  expect(optedOut(deep, root)).toBe(true);
-  expect(optedOut(off, off)).toBe(false);
+  expect(optedOut(on, "tab", off)).toBe(false);
+  expect(optedOut(deep, "tab", root)).toBe(true);
+  expect(optedOut(off, "tab", off)).toBe(false);
   await cleanup(root);
 });

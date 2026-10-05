@@ -10,7 +10,7 @@ import { parseState, resolveState } from "./tab-rules.ts";
 
 const data = readPayload();
 const cwd = text(data, "cwd");
-if (!optedOut(cwd)) {
+if (!optedOut(cwd, "tab")) {
   const state = resolveState(parseState(process.argv[2]), data);
   if (state !== null) emit(hookOutput(state, cwd));
 }

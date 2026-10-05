@@ -15,7 +15,7 @@ function todoFile(cwd: string): string | undefined {
 // marker on SessionStart. Any failure returns null, so the session starts clean.
 export function afterCompact(cwd: string): Payload | null {
   try {
-    if (optedOut(cwd)) return null;
+    if (optedOut(cwd, "kaizen")) return null;
     const todo = todoFile(cwd);
     if (todo === undefined || readFileSync(todo, "utf8").trim() === "") return null;
     return {

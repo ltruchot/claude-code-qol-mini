@@ -272,6 +272,21 @@ mkdir -p <project>/.claude && touch <project>/.claude/qol-mini-off
 
 Sessions started below the file are covered too. Remove the file to undo.
 
+An empty file switches all of it off. A file that names features switches off those only:
+
+```bash
+echo kaizen > <project>/.claude/qol-mini-off         # marker and sounds stay
+echo "tab sounds" > <project>/.claude/qol-mini-off   # the kaizen review stays
+```
+
+| Word | Switches off |
+|---|---|
+| `kaizen` | the `/compact` block, the `TODO.md` reminder after a compaction |
+| `tab` | the tab marker |
+| `sounds` | the sounds |
+
+Skills are never concerned: they are files in the project.
+
 ## Files
 
 ```

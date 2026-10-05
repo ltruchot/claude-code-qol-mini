@@ -25,11 +25,13 @@ function mark(state: State, cwd: string): void {
 }
 
 // Green while compaction runs; red when held back, applied before the exit
-// status is read. An unreadable payload or an opted-out project never blocks.
+// status is read. An unreadable payload or an opted-out project never blocks,
+// and a project that keeps the marker still gets it.
 function gate(data: Payload | null): number {
-  if (data === null || optedOut(cwdOf(data))) return 0;
-  const passes = compactionPasses(data, cwdOf(data));
-  mark(passes ? "working" : "blocked", cwdOf(data));
+  if (data === null) return 0;
+  const cwd = cwdOf(data);
+  const passes = optedOut(cwd, "kaizen") || compactionPasses(data, cwd);
+  if (!optedOut(cwd, "tab")) mark(passes ? "working" : "blocked", cwd);
   if (passes) return 0;
   process.stderr.write(`${BLOCKED}\n`);
   return 2;

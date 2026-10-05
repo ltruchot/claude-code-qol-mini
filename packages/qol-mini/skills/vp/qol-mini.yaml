@@ -1,0 +1,10 @@
+version: 1
+placeholders:
+  - name: APP_DIR
+    prompt: Path of the main app, used in the examples
+    type: path
+    default: apps/web
+  - name: DEV_PORT
+    prompt: Dev server port of that app
+    pattern: "^[0-9]{2,5}$"
+    default: "5173"

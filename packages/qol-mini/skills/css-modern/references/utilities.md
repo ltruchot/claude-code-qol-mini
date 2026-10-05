@@ -1,7 +1,7 @@
 # Utility Patterns
 
 ```css
-/* Visually hidden (screen reader only) */
+/* Visually hidden, still read by a screen reader */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -9,21 +9,34 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%); /* clip is deprecated */
   white-space: nowrap;
   border: 0;
 }
 
-/* Clearfix (rarely needed with modern layout) */
-.clearfix::after {
-  content: '';
-  display: table;
-  clear: both;
+/* One-line truncation */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Full bleed in constrained container */
+/* Contain floats: replaces the clearfix hack */
+.flow-root {
+  display: flow-root;
+}
+
+/* Full bleed in a constrained container.
+   100vw includes a classic scrollbar: the page needs overflow-x: clip, or use a grid
+   with a full-width column instead. */
 .full-bleed {
   width: 100vw;
   margin-inline: calc(50% - 50vw);
+}
+
+/* Safe areas (notch, home indicator); needs viewport-fit=cover in the viewport meta */
+.safe-area {
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  padding-block-end: max(1rem, env(safe-area-inset-bottom));
 }
 ```

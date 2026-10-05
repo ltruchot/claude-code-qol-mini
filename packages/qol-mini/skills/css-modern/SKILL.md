@@ -1,24 +1,30 @@
 ---
 name: css-modern
-description: Modern CSS for evergreen browsers (Baseline 2025)
-globs:
-  - '**/*.css'
-  - '**/*.templ'
+description: Modern CSS for evergreen browsers, each feature with its Baseline status - design tokens, OKLCH, grid, container queries, :has(), nesting, cascade layers, transitions. Use when writing or reviewing CSS, or when choosing between a new CSS feature and its fallback.
+paths: "{{CSS_PATHS}}"
 ---
 
 # Modern CSS Patterns
 
-Evergreen browsers only: Safari, Firefox, Chromium (latest).
-All features are **Baseline Widely Available** unless noted.
+Target: the current Chromium, Firefox and Safari. Each feature carries its
+[Baseline](https://web.dev/baseline) status, in the [summary table](#summary-table):
+
+- **Widely**: in all three engines for 30 months. Use freely.
+- **Newly**: in all three engines, recently. Use it; an older browser gets the fallback.
+- **Limited**: missing in at least one engine. Progressive enhancement only: the page must
+  work without it.
+
+Statuses move. Check a feature not listed here on its MDN page before relying on it.
 
 ## Design tokens (read first for any `*.css`)
 
 Every value in every `*.css` file MUST come from a `{{TOKEN_PREFIX}}-*` token defined in `{{TOKENS_FILE}}`. No raw hex, no magic px, no ad-hoc rems.
 
 **See `references/design-tokens.md`** for the authorized namespaces, the no-indirection rule, how to add a namespace, and the stylelint troubleshooting table.
+
 ## Modern Reset
 
-Josh W. Comeau's CSS Reset (2025), adapted. **See `references/reset.md`** for the full stylesheet to copy.
+Josh W. Comeau's CSS Reset, adapted. **See `references/reset.md`** for the full stylesheet to copy.
 
 ## Custom Properties (CSS Variables)
 
@@ -64,6 +70,8 @@ Josh W. Comeau's CSS Reset (2025), adapted. **See `references/reset.md`** for th
 
 ### Dark Mode with `light-dark()`
 
+Newly available: `light-dark()` needs Chrome 123, Firefox 120, Safari 17.5.
+
 ```css
 :root {
   color-scheme: light dark;
@@ -93,7 +101,7 @@ color: oklch(50% 0.2 260); /* L: 0-100%, C: 0-0.4, H: 0-360 */
 /* With alpha */
 color: oklch(50% 0.2 260 / 0.8);
 
-/* Relative color syntax (generate palettes) */
+/* Relative color syntax (generate palettes): Newly, Chrome 125, Firefox 128, Safari 18 */
 --base: oklch(55% 0.25 260);
 --lighter: oklch(from var(--base) calc(l + 0.15) c h);
 --darker: oklch(from var(--base) calc(l - 0.15) c h);
@@ -169,34 +177,6 @@ border-color: color-mix(in oklch, var(--color-border) 50%, transparent);
 }
 ```
 
-## Layout: Flexbox
-
-```css
-/* Centering */
-.center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Space between with wrap */
-.nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-/* Grow to fill */
-.sidebar {
-  flex: 0 0 250px;
-} /* Fixed width */
-.main {
-  flex: 1;
-} /* Fill remaining */
-```
-
 ## Container Queries
 
 Respond to container size, not viewport.
@@ -231,8 +211,8 @@ Respond to container size, not viewport.
 ## `:has()` Selector (Parent Selector)
 
 ```css
-/* Style parent based on child */
-.form-group:has(input:invalid) {
+/* Style parent based on child; :user-invalid waits for the user, :invalid does not */
+.form-group:has(input:user-invalid) {
   border-color: var(--color-error);
 }
 
@@ -312,11 +292,14 @@ label:has(+ input:required)::after {
 `text-wrap` fixes ragged headings and orphans with zero JS:
 
 ```css
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   text-wrap: balance; /* even line lengths, use under ~6 lines */
 }
-p, li {
-  text-wrap: pretty; /* no orphan word on the last line */
+p,
+li {
+  text-wrap: pretty; /* no orphan word on the last line; Firefox ignores it */
 }
 ```
 
@@ -324,7 +307,7 @@ p, li {
 
 ```css
 @property {{TOKEN_PREFIX}}-ring-size {
-  syntax: "<length>";
+  syntax: '<length>';
   inherits: false;
   initial-value: 0px;
 }
@@ -334,7 +317,8 @@ p, li {
 }
 ```
 
-Untyped custom properties cannot be transitioned; typed ones can.
+An untyped custom property flips from one value to the other; a typed one interpolates.
+`@property` is Newly available (Firefox 128).
 
 ## Cascade Layers
 
@@ -345,7 +329,7 @@ Control specificity order.
 @layer reset, base, components, utilities;
 
 @layer reset {
-  * {
+  *:not(dialog) {
     margin: 0;
   }
 }
@@ -371,7 +355,9 @@ Control specificity order.
 
 ## Transitions & Animations
 
-> **See `references/animations.md`** for `interpolate-size`, `@starting-style`, view transitions, keyframes, and reduced motion patterns.
+**See `references/animations.md`** before animating a height to `auto`, a `<details>`, a dialog
+entry or exit, or a view transition: each has an engine that does not follow, and the file
+names the portable form.
 
 ## Logical Properties
 
@@ -397,9 +383,11 @@ inset: 0; /* top, right, bottom, left */
 ## Scroll Behavior
 
 ```css
-/* Smooth scroll */
-html {
-  scroll-behavior: smooth;
+/* Smooth scroll, only for users who accept motion */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Scroll snap */
@@ -436,7 +424,9 @@ html {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -447,44 +437,57 @@ html {
   }
 }
 
-/* WCAG 2.2: min 24x24px, 44x44px for touch */
+/* Target size: 24x24 is WCAG 2.2 SC 2.5.8 (AA), 44x44 is SC 2.5.5 (AAA).
+   A link inside a sentence is exempt, and min-* does nothing on an inline box. */
 button,
-a {
-  min-width: 24px;
-  min-height: 24px;
+.button {
+  min-inline-size: 24px;
+  min-block-size: 24px;
 }
 @media (pointer: coarse) {
   button,
-  a {
-    min-width: 44px;
-    min-height: 44px;
+  .button {
+    min-inline-size: 44px;
+    min-block-size: 44px;
   }
 }
 ```
 
 ## Utility Patterns
 
-Visually-hidden, truncation, aspect ratio, safe areas. **See `references/utilities.md`**.
+Visually hidden, truncation, full bleed, safe areas. **See `references/utilities.md`**.
 
 ## Summary Table
 
-| Feature           | Use Case                   | Baseline      |
-| ----------------- | -------------------------- | ------------- |
-| `oklch()`         | Modern colors              | Widely (2025) |
-| `color-mix()`     | Color manipulation         | Widely (2024) |
-| `light-dark()`    | Theme colors               | Widely (2024) |
-| Container queries | Component-based responsive | Widely (2025) |
-| `:has()`          | Parent selector            | Widely (2024) |
-| Native nesting    | Cleaner CSS                | Widely (2024) |
-| `@layer`          | Specificity control        | Widely (2024) |
-| Subgrid           | Nested grids               | Widely (2023) |
-| `@starting-style` | Entry animations           | Newly (2024)  |
-| View transitions  | Page transitions           | Newly (2024)  |
+Versions are the first Chrome / Firefox / Safari release with full support.
+
+| Feature | Use | Baseline |
+| --- | --- | --- |
+| `@layer` | Specificity control | Widely |
+| Container size queries, `cqi` | Component-based responsive | Widely |
+| `oklch()`, `color-mix()` | Colors | Widely |
+| Subgrid | Nested grids | Widely |
+| Native nesting | Cleaner CSS | Widely |
+| `:has()` | Parent selector | Widely |
+| `:user-invalid`, `:user-valid` | Form state after input | Widely |
+| `:is()`, `:where()`, `dvh`/`svh`/`lvh`, `aspect-ratio`, `inert`, `linear()` | | Widely |
+| `light-dark()` | Theme colors | Newly, 123 / 120 / 17.5 |
+| `text-wrap: balance` | Headings | Newly, 114 / 121 / 17.5 |
+| `@property` | Typed tokens | Newly, 85 / 128 / 16.4 |
+| Relative color (`oklch(from ...)`) | Palettes | Newly, 125 / 128 / 18 |
+| `@starting-style` | Entry animations | Newly, 117 / 129 / 17.5 |
+| `::details-content` | Animating `<details>` | Newly, 131 / 143 / 18.4 |
+| View transitions, same document | State changes | Newly, 111 / 144 / 18 |
+| Popover, `@scope`, `field-sizing`, style queries | | Newly |
+| `text-wrap: pretty` | Paragraphs | Limited: no Firefox |
+| Transition of `display` | Exit animations | Limited: no Firefox |
+| `interpolate-size`, `calc-size()` | Animate to `auto` | Limited: Chromium only |
+| View transitions, cross-document | Page navigation | Limited: no Firefox |
+| Scroll-driven animations, anchor positioning | | Limited |
 
 ## Source
 
 - [web.dev - Baseline](https://web.dev/baseline)
+- [web-features explorer](https://web-platform-dx.github.io/web-features-explorer/): the status of one feature
 - [MDN CSS Reference](https://developer.mozilla.org/en-US/docs/Web/CSS)
-- [Josh W. Comeau - CSS Articles](https://www.joshwcomeau.com/css/)
-- [CSS-Tricks](https://css-tricks.com/)
-- [Modern CSS Solutions](https://moderncss.dev/)
+- [Josh W. Comeau - A Modern CSS Reset](https://www.joshwcomeau.com/css/custom-css-reset/)

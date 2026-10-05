@@ -14,3 +14,6 @@ placeholders:
     type: path
   - name: LINT_PLUGIN
     prompt: Stylelint plugin namespace
+  - name: CSS_PATHS
+    prompt: Globs that load this skill, comma-separated
+    default: "**/*.css"

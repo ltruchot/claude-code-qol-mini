@@ -1,6 +1,7 @@
 # Modern Reset
 
-Based on Josh W. Comeau's CSS Reset (2025):
+Josh W. Comeau's [CSS reset](https://www.joshwcomeau.com/css/custom-css-reset/), adapted. The
+reduced-motion block at the end is an addition.
 
 ```css
 /* Box sizing */
@@ -10,21 +11,15 @@ Based on Josh W. Comeau's CSS Reset (2025):
   box-sizing: border-box;
 }
 
-/* Remove default margin */
-* {
+/* Remove default margin; a modal <dialog> is centered by its own margin: auto */
+*:not(dialog) {
   margin: 0;
-}
-
-/* Fluid typography and smooth scroll */
-html {
-  interpolate-size: allow-keywords; /* Animate to auto */
-  scroll-behavior: smooth;
 }
 
 /* Sensible body defaults */
 body {
   line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: antialiased; /* non-standard, macOS only */
 }
 
 /* Media defaults */
@@ -54,7 +49,10 @@ h4,
 h5,
 h6 {
   overflow-wrap: break-word;
-  text-wrap: pretty; /* Avoid orphans */
+}
+
+p {
+  text-wrap: pretty; /* Avoid orphans; Firefox ignores it */
 }
 
 h1,
@@ -74,6 +72,15 @@ h6 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 ```
+
+## Left out on purpose
+
+- `interpolate-size: allow-keywords` on `html`. It is Chromium only, and it is inherited: every
+  transition on the page that goes to or from `auto`, third-party CSS included, starts to
+  animate. Set it on the component that needs it: `references/animations.md`.
+- `scroll-behavior: smooth` on `html`. When wanted, put it under
+  `@media (prefers-reduced-motion: no-preference)`.

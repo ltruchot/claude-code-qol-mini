@@ -218,6 +218,22 @@ A prompt that blocks a script or CI is a bug.
 - An argument holding a path separator, or `.`, is the project; every other
   argument must be a kebab-case skill name.
 - Writes go to `<project>/.claude` and `~/.cache/qol-mini`, nowhere else.
+- The bank grows by review: skills duplicated across local projects are collected and
+  compared at intervals, and one enters when the same need shows in several projects.
+  Its text is rewritten generic, every claim checked against a primary source.
+- A skill enters only if it serves professional work and can be public. Never: a
+  secret or a credential, private or personal data, a host or account name, an insecure
+  practice, copyrighted text without a license that allows it, a third party's skill
+  that has its own installer, anything specific to one project. What is specific to
+  a project is a placeholder, or stays in that project.
+- A managed skill is a vendor file for the project's formatters and linters: one that
+  rewrites it turns it into `drift` and makes its update conflict. `install` names the
+  paths to ignore after it adds a skill, `check` when it finds `drift`; both list the
+  tools configured at the project root (`io/lint-configs.ts`). The kit reads those
+  configs and never writes one: the README holds the prompt that does.
+- The bank's `SKILL.md` frontmatter holds only the fields of the skills reference; a
+  field outside the table is ignored by Claude Code with no error.
+  `tests/unit/shipped-skills.test.ts` holds the list.
 
 ### Windows
 

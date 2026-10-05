@@ -35,7 +35,7 @@ pnpm dlx qol-mini skills install qa-pr /path/to/my-project  #    or name them
 | 2 | `/path/to/my-project/.claude/skills/` and `.claude/qol-mini.lock.json` | commit both; start a new session in that project |
 
 A skill asks for its values once (`qa-pr`: the GitHub repo, the production URL).
-Shipped skills: `css-modern`, `npm-vulnerability-check`, `qa-pr`, `kaizen`.
+Shipped skills: `css-modern`, `datastar`, `npm-vulnerability-check`, `qa-pr`, `vp`, `kaizen`.
 
 ## Install
 
@@ -181,7 +181,7 @@ Automatic compaction is never blocked. Skip a review:
 
 ## Skills
 
-Shipped in the package: `css-modern`, `npm-vulnerability-check`, `qa-pr`, `kaizen`.
+Shipped in the package: `css-modern`, `datastar`, `npm-vulnerability-check`, `qa-pr`, `vp`, `kaizen`.
 `qol-mini` below is `pnpm dlx qol-mini`, or `./scripts/qol-mini.sh` from a clone.
 
 ```bash
@@ -205,6 +205,56 @@ qol-mini skills remove qa-pr ./my-project
 | Never commit | `.claude/qol-mini.local.json`: secret answers, gitignored by the installer |
 
 Details: [docs/skills.md](docs/skills.md).
+
+## Linters and managed skills
+
+A formatter or linter that rewrites a managed skill makes `skills check` exit 2 and the next
+`skills update` conflict. `skills install` and `skills check` print the paths to ignore and
+the tools configured at the project root. The kit writes no linter config.
+
+| Tool | Ignore the path in |
+|---|---|
+| Prettier | `.prettierignore` |
+| ESLint | a config object holding only `ignores`, in `eslint.config.*` |
+| Biome 2 | `files.includes`, negated: `"!.claude/skills/<name>"` |
+| Biome 1 | `files.ignore` |
+| Oxlint | `ignorePatterns` in `.oxlintrc.json` |
+| Oxfmt | `ignorePatterns` in `.oxfmtrc.json` |
+| Vite+ | `fmt.ignorePatterns` and `lint.ignorePatterns` in the root `vite.config.ts` |
+| Stylelint | `.stylelintignore` |
+| markdownlint | `.markdownlintignore`, or `ignores` in `.markdownlint-cli2.jsonc` |
+| dprint | `excludes` in `dprint.json` |
+| lint-staged, lefthook, husky | the glob of each command that formats or fixes |
+
+Prompt for an agent, to paste in the project:
+
+```text
+This project installs skills with qol-mini. The managed ones are the keys of "skills" in
+.claude/qol-mini.lock.json; each lives in .claude/skills/<name>/. They are vendor files: no
+formatter and no linter of this project may rewrite or report them.
+
+1. List the managed skills: read .claude/qol-mini.lock.json.
+2. Find every tool that formats or lints files here. Look at the root and at each workspace
+   package for: .prettierrc*, prettier.config.*, .prettierignore, eslint.config.*,
+   biome.json(c), .oxlintrc.json, .oxfmtrc.json, vite.config.* with a fmt or lint block,
+   .stylelintrc*, stylelint.config.*, .markdownlint*, dprint.json, .editorconfig-driven
+   formatters, and the commands in package.json scripts, Makefile, lint-staged, lefthook.yml,
+   .husky/ and the CI workflows.
+3. For each tool found, add one ignore entry per managed skill, .claude/skills/<name>/, in
+   that tool's own ignore mechanism. Never ignore .claude/skills/ as a whole: the skills
+   written by hand in this project stay linted and formatted. Keep the existing entries and
+   comments. Add a one-line comment saying the path is managed by qol-mini.
+4. If a command passes .claude/skills explicitly (a script, a hook glob), check that the
+   tool's ignore file still applies to it; if it does not, narrow the command.
+5. Verify: run each formatter in check mode and each linter over .claude/skills, and show
+   that no managed file is reported or changed. Then run
+   `pnpm dlx qol-mini skills check .` and report its output.
+6. If `skills check` says a managed skill is "modified on disk", do not reformat it back by
+   hand. Show the diff against the kit's version with
+   `pnpm dlx qol-mini skills install <name> . --dry-run` and ask whether the local changes
+   are wanted, or whether `--replace` should restore the kit's files.
+7. Change nothing else. Do not commit.
+```
 
 ## Leave one project alone
 

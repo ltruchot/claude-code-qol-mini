@@ -243,6 +243,9 @@ A prompt that blocks a script or CI is a bug.
   that, start with `claude --debug` and read `~/.claude/debug/<session-id>.txt`.
 - Wake another session with `SendMessage` to make its hooks fire.
 - `/proc/PID/environ` cannot show a variable set by `settings.json`.
+- The shell is zsh: quote a word that starts with `=` and any glob passed as an
+  argument, and wrap a command in a function, not in a variable: `$CMD args` is
+  one word there.
 - To interrupt a running tool, accept its permission prompt first: Esc on the dialog
   is a rejection and the tool never runs.
 - Verify a negative result before concluding.
@@ -253,10 +256,10 @@ A prompt that blocks a script or CI is a bug.
 
 | Where | What |
 |---|---|
-| This machine: WSL2, Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories, from a clone and from npm through `pnpm dlx` |
+| This machine: WSL2, Node 24 | the test suite; install, update, uninstall and skills install against throwaway directories, from a clone and from npm through `pnpm dlx`; the update of a real config that held `.py` handlers |
 | CI: Linux, macOS | the test suite |
 | CI: Linux, macOS, Windows | install, update, a delivered hook run alone, a skill installed and checked, uninstall |
-| Never | the Node hooks in a live session: tab marker on screen, sounds heard, `/compact` held back; `afplay`, PowerShell `SoundPlayer`; the editor paths outside WSL; the update of a real config that holds `.py` handlers |
+| Never | the Node hooks in a live session: tab marker on screen, sounds heard, `/compact` held back; `afplay`, PowerShell `SoundPlayer`; the editor paths outside WSL |
 
 The README states this. Do not claim more.
 
